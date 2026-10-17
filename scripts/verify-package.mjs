@@ -66,6 +66,17 @@ for (const artifact of metadata.artifacts) {
     assert.ok(existsSync(join(appdir, 'usr/lib/libgtk-3.so.0')));
     assert.ok(existsSync(join(appdir, 'usr/lib/libayatana-appindicator3.so.1')));
     assert.ok(existsSync(join(appdir, 'usr/share/lolping-lite/licenses/linux-bundled/manifest.json')));
+    const schemaDir = join(appdir, 'usr/share/glib-2.0/schemas');
+    assert.ok(existsSync(join(schemaDir, 'gschemas.compiled')));
+    // Hide all host schema directories: a GTK-less host must still be able to
+    // open the native import chooser using this AppImage's own settings schema.
+    const emptyData = resetGenerated('.cache/verify/empty-xdg-data', '.cache/verify/empty-xdg-data');
+    const schemaEnv = { ...process.env, XDG_DATA_DIRS: emptyData, XDG_DATA_HOME: emptyData,
+      GSETTINGS_SCHEMA_DIR: schemaDir, GSETTINGS_BACKEND: 'memory', LD_LIBRARY_PATH: join(appdir, 'usr/lib') };
+    const schemas = run('gsettings', ['list-schemas'], { env: schemaEnv, stdio: 'pipe' }).toString().trim().split('\n');
+    assert.ok(schemas.includes('org.gtk.Settings.FileChooser'), 'The extracted bundle supplies the native chooser schema');
+    assert.match(run('gsettings', ['get', 'org.gtk.Settings.FileChooser', 'sort-directories-first'], { env: schemaEnv, stdio: 'pipe' }).toString().trim(), /^(true|false)$/);
+    checks.push('AppImage: bundled GTK chooser schemas resolve with empty XDG_DATA_DIRS and XDG_DATA_HOME');
     run(join(appdir, 'AppRun'), ['--self-test']);
     checks.push('AppImage: extracted payload, native dependencies and self-test verified');
   }

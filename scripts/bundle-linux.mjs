@@ -42,6 +42,19 @@ export function bundleLinux(appdir) {
       bundled.set(soname, path); queue.push(path);
     }
   }
+  // GtkFileChooser constructs these GSettings objects unconditionally. A host
+  // without system GTK must not lose native imports because its schemas are absent.
+  const schemaDir = ensure(join(appdir, 'usr/share/glib-2.0/schemas'));
+  const systemSchemas = '/usr/share/glib-2.0/schemas';
+  const schemas = readdirSync(systemSchemas).filter(name => /^org\.gtk\.Settings\..+\.gschema\.xml$/.test(name)).sort();
+  if (!schemas.includes('org.gtk.Settings.FileChooser.gschema.xml')) throw Error('Missing GTK file chooser schema');
+  const schemaSources = schemas.map(name => join(systemSchemas, name));
+  for (const source of schemaSources) {
+    if (!statSync(realpathSync(source)).isFile()) throw Error(`GTK schema is not a regular file: ${source}`);
+    copyFileSync(realpathSync(source), join(schemaDir, basename(source)));
+  }
+  run('glib-compile-schemas', ['--strict', schemaDir]);
+  const bundledSchemaBytes = readdirSync(schemaDir).reduce((bytes, name) => bytes + statSync(join(schemaDir, name)).size, 0);
   // Retain system package copyright notices for each bundled dependency.
   const noticeDir = ensure(join(appdir, 'usr/share/lolping-lite/licenses/linux-bundled'));
   const commonLicenses = ensure(join(noticeDir, 'common-licenses'));
@@ -53,7 +66,7 @@ export function bundleLinux(appdir) {
     copyFileSync(source, join(commonLicenses, name));
   }
   const packages = new Set();
-  for (const source of bundled.values()) {
+  for (const source of [...bundled.values(), ...schemaSources]) {
     let result;
     for (const candidate of [source, realpathSync(source), `*/${basename(realpathSync(source))}`]) {
       try { result = run('dpkg-query', ['-S', candidate], { stdio: 'pipe' }).toString().trim().split('\n')[0]; break; } catch { /* /lib and /usr/lib aliases differ on usr-merged systems. */ }
@@ -66,6 +79,6 @@ export function bundleLinux(appdir) {
     if (!existsSync(copyright)) throw Error(`Missing dependency license: ${pkg}`);
     copyFileSync(realpathSync(copyright), join(noticeDir, `${pkg.replaceAll(':', '-')}.txt`));
   }
-  write(join(noticeDir, 'manifest.json'), JSON.stringify({ libraries: Object.fromEntries(bundled), bundledLibraryBytes, packages: [...packages], hostLibraries: ['glibc', 'OpenGL/EGL/Vulkan drivers'] }, null, 2) + '\n');
-  console.log(`AppImage: bundled ${bundled.size} native libraries (${bundledLibraryBytes} bytes); glibc and GPU drivers remain system dependencies.`);
+  write(join(noticeDir, 'manifest.json'), JSON.stringify({ libraries: Object.fromEntries(bundled), bundledLibraryBytes, schemas: schemaSources, bundledSchemaBytes, packages: [...packages], hostLibraries: ['glibc', 'OpenGL/EGL/Vulkan drivers'] }, null, 2) + '\n');
+  console.log(`AppImage: bundled ${bundled.size} native libraries (${bundledLibraryBytes} bytes) and ${schemas.length} GTK schemas (${bundledSchemaBytes} bytes); glibc and GPU drivers remain system dependencies.`);
 }

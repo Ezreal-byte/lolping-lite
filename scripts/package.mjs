@@ -69,7 +69,7 @@ if (process.platform === 'linux') {
   for (const path of ['.DirIcon', 'lolping-lite.png', 'usr/share/icons/hicolor/128x128/apps/lolping-lite.png']) {
     ensure(dirname(join(stage, path))); copyFileSync(join(root, 'assets/plugin.png'), join(stage, path));
   }
-  write(join(stage, 'AppRun'), `#!/bin/sh\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LOLPING_ROOT="$HERE/usr/share/lolping-lite"\nexport LD_LIBRARY_PATH="$HERE/usr/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexec "$HERE/usr/bin/lolping-lite" "$@"\n`);
+  write(join(stage, 'AppRun'), `#!/bin/sh\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LOLPING_ROOT="$HERE/usr/share/lolping-lite"\nexport LD_LIBRARY_PATH="$HERE/usr/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexport GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas"\nexec "$HERE/usr/bin/lolping-lite" "$@"\n`);
   chmodSync(join(stage, 'AppRun'), 0o755);
 }
 

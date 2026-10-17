@@ -22,6 +22,8 @@ const root = option('--root', join(appdir, 'usr/share/lolping-lite'));
 const executable = option('--executable', join(appdir, 'AppRun'));
 const bundle = dirname(executable);
 const data = join(repository, '.test-data', `appimage-smoke-${Date.now()}`);
+const emptyData = join(data, 'empty-xdg-data');
+mkdirSync(emptyData, { recursive: true });
 for (const path of [root, executable]) assert.ok(existsSync(path), `Missing extracted AppImage input: ${path}`);
 
 async function gone(pid) {
@@ -35,7 +37,7 @@ function requireBundledLibrary(pid, library) {
 }
 
 const checks = [];
-const rpc = new Rpc(root, data, executable);
+const rpc = new Rpc(root, data, executable, { env: { XDG_DATA_DIRS: emptyData, XDG_DATA_HOME: emptyData } });
 try {
   await rpc.request('settings', { volume: 0, keepLastPing: false, pingDurationS: 1 });
   await rpc.request('start');
@@ -44,6 +46,8 @@ try {
   assert.ok(started.helperPid > 0);
   assert.equal(realpathSync(`/proc/${rpc.child.pid}/exe`), realpathSync(join(bundle, 'usr/bin/lolping-lite')));
   requireBundledLibrary(rpc.child.pid, 'libgtk-3.so.0');
+  const environment = readFileSync(`/proc/${rpc.child.pid}/environ`, 'utf8').split('\0');
+  assert.ok(environment.includes(`GSETTINGS_SCHEMA_DIR=${join(bundle, 'usr/share/glib-2.0/schemas')}`));
   checks.push('AppRun executes the packaged controller and loads the bundled GTK library');
 
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });
