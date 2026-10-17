@@ -66,14 +66,12 @@ pub fn tray_host_available() -> bool {
     let Ok(connection) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else {
         return false;
     };
-    // AppIndicator implementations currently use org.kde; accept the official
-    // specification name as well. NO_AUTO_START never launches a tray service.
-    for service in [
-        "org.kde.StatusNotifierWatcher",
-        "org.freedesktop.StatusNotifierWatcher",
-    ] {
-        let params = (service, "IsStatusNotifierHostRegistered").to_variant();
-        if let Ok(reply) = connection.call_sync(
+    // This is the watcher libayatana-appindicator actually registers with.
+    // NO_AUTO_START never launches a tray service just for this probe.
+    let service = "org.kde.StatusNotifierWatcher";
+    let params = (service, "IsStatusNotifierHostRegistered").to_variant();
+    connection
+        .call_sync(
             Some(service),
             "/StatusNotifierWatcher",
             "org.freedesktop.DBus.Properties",
@@ -83,18 +81,11 @@ pub fn tray_host_available() -> bool {
             gio::DBusCallFlags::NO_AUTO_START,
             250,
             gio::Cancellable::NONE,
-        ) {
-            if reply
-                .child_value(0)
-                .as_variant()
-                .and_then(|value| value.get::<bool>())
-                == Some(true)
-            {
-                return true;
-            }
-        }
-    }
-    false
+        )
+        .ok()
+        .and_then(|reply| reply.get::<(gtk::glib::Variant,)>())
+        .and_then(|(value,)| value.get::<bool>())
+        == Some(true)
 }
 
 #[cfg(target_os = "linux")]
@@ -130,7 +121,7 @@ pub fn configure_overlay(window: &tao::window::Window) -> Result<gtk::gdk::Windo
     native.set_accept_focus(false);
     native.set_focus_on_map(false);
     native.set_pass_through(true);
-    native.input_shape_combine_region(Some(&cairo::Region::create()), 0, 0);
+    native.input_shape_combine_region(&cairo::Region::create(), 0, 0);
     Ok(native)
 }
 

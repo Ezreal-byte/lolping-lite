@@ -1,7 +1,8 @@
 param(
     [int]$RootProcess,
     [ValidateRange(1000,60000)][int]$DurationMs = 6000,
-    [switch]$Hardware
+    [switch]$Hardware,
+    [switch]$ProcessOnly
 )
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -47,6 +48,16 @@ public static class LolPingBenchmarkDisplays {
         memoryMiB = [Math]::Round([double]$os.TotalVisibleMemorySize / 1024, 0)
         displays = @([LolPingBenchmarkDisplays]::Read())
     } | ConvertTo-Json -Depth 5 -Compress
+    exit 0
+}
+
+if ($ProcessOnly) {
+    $process = Get-Process -Id $RootProcess
+    [pscustomobject]@{
+        sampledAt = [DateTimeOffset]::UtcNow.ToString('o')
+        workingSetBytes = $process.WorkingSet64
+        privateCommitBytes = $process.PrivateMemorySize64
+    } | ConvertTo-Json -Compress
     exit 0
 }
 

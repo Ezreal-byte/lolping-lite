@@ -85,7 +85,7 @@ function record(path, details = {}) { const bytes = readFileSync(path); artifact
 if (process.platform === 'win32') {
   const zipFiles = Object.fromEntries(staged.map(f => [f.key, readFileSync(f.path)]));
   const zip = join(dist, `${stem}.zip`);
-  write(zip, zipSync(zipFiles, { level: 9, mtime: new Date('2020-01-01T00:00:00Z') }));
+  write(zip, zipSync(zipFiles, { level: 9, mtime: new Date(2020, 0, 1, 0, 0, 0) }));
   record(zip, { kind: 'portable', unsigned: true });
   const uninstall = join(stageBase, '..', 'uninstall-files.nsh');
   const dirs = new Set();
@@ -110,7 +110,7 @@ if (process.platform === 'win32') {
   const debRoot = ensure(join(stageBase, 'deb'));
   cpSync(join(stage, 'usr'), join(debRoot, 'usr'), { recursive: true });
   makeChecksums(debRoot, join(debRoot, 'usr/share/lolping-lite/checksums.json'));
-  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libayatana-appindicator3-1, libgl1, libegl1\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Requires an X11 desktop with a compositor. Wayland gestures are unsupported.\n`);
+  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libxkbcommon-x11-0, libayatana-appindicator3-1, libgl1, libegl1\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Requires an X11 desktop with a compositor. Wayland gestures are unsupported.\n`);
   const deb = join(dist, `${stem}.deb`);
   run('dpkg-deb', ['--root-owner-group', '--build', debRoot, deb]);
   record(deb, { kind: 'debian', minimum: 'Ubuntu 22.04 / glibc 2.35; X11 + compositor' });

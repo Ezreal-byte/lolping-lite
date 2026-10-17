@@ -18,6 +18,8 @@ export function buildExtraEmotes() {
   if (Object.keys(index).length !== 105) throw Error('Expected 35 optional emotes');
   extra['pack.json'] = strToU8(JSON.stringify({ version: 1, id: 'lolping-extra-emotes', upstream: upstream.revision, files: index }, null, 2));
   const path = join(root, 'dist/lolping-extra-emotes-1.zip');
-  write(path, zipSync(extra, { level: 9, mtime: new Date('2020-01-01T00:00:00Z') }));
+  // ZIP stores a timezone-less DOS timestamp; use the same local clock fields
+  // on every builder, including developers whose timezone is not UTC.
+  write(path, zipSync(extra, { level: 9, mtime: new Date(2020, 0, 1, 0, 0, 0) }));
   return path;
 }

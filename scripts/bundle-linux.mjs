@@ -12,7 +12,10 @@ export function bundleLinux(appdir) {
   const ldconfig = run('ldconfig', ['-p'], { stdio: 'pipe' }).toString();
   const indicator = ldconfig.split('\n').find(line => line.includes('libayatana-appindicator3.so.1 ') && line.includes('x86-64'))?.trim().split(' => ')[1];
   if (!indicator) throw Error('Install libayatana-appindicator3-1 before AppImage packaging');
-  queue.push(indicator);
+  const xkb = ldconfig.split('\n').find(line => line.includes('libxkbcommon-x11.so.0 ') && line.includes('x86-64'))?.trim().split(' => ')[1];
+  if (!xkb) throw Error('Install libxkbcommon-x11-0 before AppImage packaging');
+  const dynamicRoots = new Set([indicator, xkb]);
+  queue.push(...dynamicRoots);
   const scan = new Set();
   while (queue.length) {
     const binary = queue.shift();
@@ -21,7 +24,7 @@ export function bundleLinux(appdir) {
     const output = run('ldd', [binary], { stdio: 'pipe' }).toString();
     if (output.includes('not found')) throw Error(`Unresolved dependency for ${binary}:\n${output}`);
     const dependencies = output.split('\n').flatMap(line => { const match = line.match(/^\s*(\S+)\s+=>\s+(\/\S+)/); return match ? [{ soname: match[1], path: match[2] }] : []; });
-    if (binary === indicator) dependencies.push({ soname: basename(binary), path: binary });
+    if (dynamicRoots.has(binary)) dependencies.push({ soname: basename(binary), path: binary });
     for (const { soname, path } of dependencies) {
       if (hostLibrary.test(soname) || bundled.has(soname)) continue;
       cpSync(path, join(libdir, soname), { dereference: true });

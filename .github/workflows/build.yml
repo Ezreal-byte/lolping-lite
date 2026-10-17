@@ -47,7 +47,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -75,7 +75,7 @@ jobs:
         run: node scripts/standalone-smoke.mjs --no-desktop
       - name: Linux X11 lifecycle smoke in an isolated desktop
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1280x960x24 +extension Composite +extension RENDER" dbus-run-session -- sh -c 'xcompmgr -a & compositor=$!; trap "kill $compositor 2>/dev/null || true" EXIT; sleep 1; XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 node scripts/standalone-smoke.mjs'
+        run: xvfb-run -a -s "-screen 0 1280x960x24 +extension Composite +extension RENDER" dbus-run-session -- sh -c 'xcompmgr -a & compositor=$!; trap "kill $compositor 2>/dev/null || true" EXIT; sleep 1; LOLPING_PRIVATE_XVFB=1 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 node scripts/standalone-smoke.mjs'
       - name: Build installable and portable artifacts
         run: npm run package
       - name: Verify signed payload, resource indexes and hashes

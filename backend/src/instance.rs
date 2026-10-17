@@ -108,6 +108,47 @@ fn write_until(connection: &mut Stream, mut bytes: &[u8], deadline: Instant) -> 
     }
 }
 
+fn read_available(connection: &mut Stream, bytes: &mut [u8]) -> io::Result<usize> {
+    #[cfg(windows)]
+    {
+        use std::{
+            os::windows::io::{AsHandle, AsRawHandle},
+            ptr,
+        };
+        use windows_sys::Win32::System::Pipes::PeekNamedPipe;
+        let Stream::NamedPipe(pipe) = &*connection;
+        let mut available = 0;
+        if unsafe {
+            PeekNamedPipe(
+                pipe.as_handle().as_raw_handle(),
+                ptr::null_mut(),
+                0,
+                ptr::null_mut(),
+                &mut available,
+                ptr::null_mut(),
+            )
+        } == 0
+        {
+            let error = io::Error::last_os_error();
+            return if error.kind() == io::ErrorKind::BrokenPipe {
+                Ok(0)
+            } else {
+                Err(error)
+            };
+        }
+        // PIPE_NOWAIT returns ERROR_NO_DATA for an empty connected pipe. Rust
+        // classifies it as BrokenPipe, which interprocess maps to EOF. Peeking
+        // first distinguishes "nothing yet" from a disconnected peer.
+        if available == 0 {
+            return Err(io::ErrorKind::WouldBlock.into());
+        }
+        let count = bytes.len().min(available as usize);
+        return connection.read(&mut bytes[..count]);
+    }
+    #[cfg(not(windows))]
+    connection.read(bytes)
+}
+
 fn name(data: &Path) -> io::Result<Name<'static>> {
     #[cfg(windows)]
     {
@@ -154,7 +195,7 @@ fn notify_until(data: &Path, command: &str, until: Instant) -> io::Result<()> {
     let mut reply = [0u8; 16];
     let mut received = 0;
     while Instant::now() < until && received < reply.len() {
-        match connection.read(&mut reply[received..]) {
+        match read_available(&mut connection, &mut reply[received..]) {
             Ok(n) if n > 0 => {
                 received += n;
                 if reply[..received].contains(&b'\n') {
@@ -245,7 +286,7 @@ pub fn serve(
         let mut bytes = Vec::new();
         while Instant::now() < deadline && bytes.len() < 32 && !bytes.contains(&b'\n') {
             let mut buf = [0u8; 32];
-            match connection.read(&mut buf) {
+            match read_available(&mut connection, &mut buf) {
                 Ok(0) => break,
                 Ok(n) => bytes.extend_from_slice(&buf[..n]),
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -314,17 +355,24 @@ mod tests {
             let mut stream = loop {
                 match instance.accept() {
                     Ok(stream) => break stream,
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(5)),
+                    Err(error)
+                        if error.kind() == io::ErrorKind::WouldBlock
+                            && Instant::now() < deadline =>
+                    {
+                        std::thread::sleep(Duration::from_millis(5))
+                    }
                     Err(error) => panic!("accept failed: {error}"),
                 }
             };
             let mut request = Vec::new();
             while !request.contains(&b'\n') && Instant::now() < deadline {
                 let mut bytes = [0; 16];
-                match stream.read(&mut bytes) {
+                match read_available(&mut stream, &mut bytes) {
                     Ok(0) => break,
                     Ok(n) => request.extend_from_slice(&bytes[..n]),
-                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => std::thread::sleep(Duration::from_millis(5)),
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(5))
+                    }
                     Err(error) => panic!("read failed: {error}"),
                 }
             }
@@ -333,8 +381,9 @@ mod tests {
             std::thread::sleep(Duration::from_millis(40));
             write_until(&mut stream, b"k\n", deadline).unwrap();
         });
-        notify(dir.path(), "open").unwrap();
+        let result = notify(dir.path(), "open");
         server.join().unwrap();
+        result.unwrap();
     }
 
     #[test]

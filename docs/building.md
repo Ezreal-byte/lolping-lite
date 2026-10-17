@@ -13,7 +13,7 @@ macOS：Apple Silicon、Xcode Command Line Tools。系统 `sips` / `iconutil` �
 Linux：Ubuntu 22.04 x64，安装以下依赖：
 
 ```sh
-sudo apt-get install build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
+sudo apt-get install build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
 ```
 
 `.deb` 通过依赖声明使用系统库。AppImage 收集原生 GTK、ALSA、X11 与托盘库及其版权声明，保留系统 glibc 与显卡驱动；Linux 体积报告应把这些依赖打包成本单独说明。
@@ -50,3 +50,7 @@ python3 scripts/test-linux-surface.py
 先提交、push，等待 Windows、macOS、Linux 构建以及 `release-ready` 汇总任务全部通过。下载同一 commit 的 CI 产物，对照各平台 `SHA256SUMS-*.txt` 校验，再创建 `v0.1.0` Release。不要将后来本地重编译的文件替换该次 CI 产物。
 
 随 Release 提供扩展包、SHA-256、第三方声明与实际性能报告。README 的内存降幅只写实测支持的结果，并说明旧版本、显示器、采样范围和 GPU 内存不计入的限制。
+
+## 更新与卸载
+
+Windows 安装器在覆盖升级和卸载前发送 `--quit`，等待主进程、设置及输入 helper 正常退出；卸载删除当前用户的开机自启项并保留用户配置与导入素材。macOS DMG、Linux AppImage 和 Debian 包管理器不会自动关闭用户会话中的进程：移除应用前先在设置关闭开机自启，再从托盘退出，然后删除应用或卸载 Debian 包。免安装版更新同样应先退出，再替换完整程序目录。

@@ -390,7 +390,7 @@ mod platform {
                 self.native
                     .move_resize(geometry.x, geometry.y, geometry.width, geometry.height);
                 self.native
-                    .input_shape_combine_region(Some(&cairo::Region::create()), 0, 0);
+                    .input_shape_combine_region(&cairo::Region::create(), 0, 0);
             }
             if frame.image.as_ref().is_none_or(|image| {
                 image.width() != bounds.w as i32 || image.height() != bounds.h as i32

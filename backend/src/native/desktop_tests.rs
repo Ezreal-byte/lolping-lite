@@ -109,29 +109,92 @@ fn edge_then_center_keeps_native_surface_geometry() {
 // enlarged rectangle while the actual desktop still showed the old clipped region.
 // Compare opaque pixels only, so the desktop wallpaper cannot affect the result.
 fn assert_visible_pixels(w: &Overlay, bounds: crate::render::Bounds, label: &str) {
-    use windows_sys::Win32::Graphics::{
-        Dwm::DwmFlush,
-        Gdi::{GetDC, GetPixel, ReleaseDC},
+    use tao::platform::windows::WindowExtWindows;
+    use windows_sys::Win32::{
+        Graphics::{Dwm::DwmFlush, Gdi::*},
+        UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+        },
     };
     unsafe {
+        // Other system topmost windows (for example the taskbar) can reorder
+        // while the test runs. Raise only our own test overlay without focus.
+        assert_ne!(
+            SetWindowPos(
+                w.window.hwnd() as _,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER
+            ),
+            0
+        );
         assert!(DwmFlush() >= 0);
         let dc = GetDC(std::ptr::null_mut());
         assert!(!dc.is_null());
+        // Capture one coherent composited frame. Thousands of GetPixel calls
+        // can take a minute and sample different desktop frames along the way.
+        let capture = CreateCompatibleDC(dc);
+        assert!(!capture.is_null());
+        let info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: bounds.w as i32,
+                biHeight: -(bounds.h as i32),
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB,
+                ..std::mem::zeroed()
+            },
+            ..std::mem::zeroed()
+        };
+        let mut bits = std::ptr::null_mut();
+        let bitmap = CreateDIBSection(
+            dc,
+            &info,
+            DIB_RGB_COLORS,
+            &mut bits,
+            std::ptr::null_mut(),
+            0,
+        );
+        assert!(!bitmap.is_null());
+        let old = SelectObject(capture, bitmap);
+        assert_ne!(
+            BitBlt(
+                capture,
+                0,
+                0,
+                bounds.w as i32,
+                bounds.h as i32,
+                dc,
+                w.display.x + bounds.x,
+                w.display.y + bounds.y,
+                SRCCOPY | CAPTUREBLT
+            ),
+            0
+        );
+        GdiFlush();
+        ReleaseDC(std::ptr::null_mut(), dc);
+        let desktop = std::slice::from_raw_parts(
+            bits as *const u8,
+            bounds.w as usize * bounds.h as usize * 4,
+        );
         let pixels = w.pixels.as_ref().unwrap();
         let mut checked = 0;
         let mut matched = 0;
-        for y in (0..bounds.h).step_by(24) {
-            for x in (0..bounds.w).step_by(24) {
+        // Small corner crops contain too few opaque points on a 24 px grid:
+        // one unrelated desktop pixel would outweigh the 2% tolerance. Keep
+        // the same threshold but sample densely enough to detect real clipping.
+        for y in (0..bounds.h).step_by(8) {
+            for x in (0..bounds.w).step_by(8) {
                 let p = pixels.pixel(x, y).unwrap();
                 if p.alpha() != 255 {
                     continue;
                 }
-                let c = GetPixel(
-                    dc,
-                    w.display.x + bounds.x + x as i32,
-                    w.display.y + bounds.y + y as i32,
-                );
-                let actual = [c as u8, (c >> 8) as u8, (c >> 16) as u8];
+                let at = (y as usize * bounds.w as usize + x as usize) * 4;
+                let actual = [desktop[at + 2], desktop[at + 1], desktop[at]];
                 let expected = [p.red(), p.green(), p.blue()];
                 checked += 1;
                 if actual
@@ -140,15 +203,72 @@ fn assert_visible_pixels(w: &Overlay, bounds: crate::render::Bounds, label: &str
                     .all(|(a, e)| a.abs_diff(e) <= 3)
                 {
                     matched += 1;
+                } else if checked - matched <= 8 {
+                    eprintln!(
+                        "{label}: pixel ({},{}) expected {expected:?}, got {actual:?}",
+                        w.display.x + bounds.x + x as i32,
+                        w.display.y + bounds.y + y as i32
+                    );
+                    if checked - matched == 1 {
+                        diagnose_occlusion(
+                            w,
+                            w.display.x + bounds.x + x as i32,
+                            w.display.y + bounds.y + y as i32,
+                        );
+                    }
                 }
             }
         }
-        ReleaseDC(std::ptr::null_mut(), dc);
+        SelectObject(capture, old);
+        DeleteObject(bitmap);
+        DeleteDC(capture);
         eprintln!("{label}: {matched}/{checked} opaque desktop pixels match submitted frame");
-        assert!(checked >= 10, "{label}: insufficient opaque samples");
+        assert!(checked >= 100, "{label}: insufficient opaque samples");
         assert!(
             matched * 100 >= checked * 98,
             "{label}: native surface is clipped or stale ({matched}/{checked})"
         );
+    }
+}
+
+// Report rectangles and owning processes only; do not inspect other apps' text.
+// This distinguishes an external always-on-top pixel from a layered-buffer bug.
+fn diagnose_occlusion(overlay: &Overlay, x: i32, y: i32) {
+    use tao::platform::windows::WindowExtWindows;
+    use windows_sys::Win32::{
+        Foundation::RECT,
+        UI::WindowsAndMessaging::{
+            GetTopWindow, GetWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible,
+            GW_HWNDNEXT,
+        },
+    };
+    unsafe {
+        let own = overlay.window.hwnd() as _;
+        let mut candidate = GetTopWindow(std::ptr::null_mut());
+        while !candidate.is_null() {
+            let mut rect: RECT = std::mem::zeroed();
+            if IsWindowVisible(candidate) != 0
+                && GetWindowRect(candidate, &mut rect) != 0
+                && rect.left <= x
+                && x < rect.right
+                && rect.top <= y
+                && y < rect.bottom
+            {
+                let mut pid = 0;
+                GetWindowThreadProcessId(candidate, &mut pid);
+                eprintln!(
+                    "pixel z-order: pid={pid} overlay={} rect=({},{})-({},{})",
+                    candidate == own,
+                    rect.left,
+                    rect.top,
+                    rect.right,
+                    rect.bottom
+                );
+            }
+            if candidate == own {
+                break;
+            }
+            candidate = GetWindow(candidate, GW_HWNDNEXT);
+        }
     }
 }

@@ -28,6 +28,8 @@
 node scripts/benchmark-windows.mjs --baseline <0.1.1-windows-x64.dbxp>
 ```
 
+生产单实例和设置生命周期单独运行 `node scripts/windows-lifecycle.mjs`：验证重复启动复用同一进程、设置关闭后 helper 不变、`--quit` 清理完整进程树，并在连续 20 次设置开关后记录主进程工作集与私有提交。报告 `dist/windows-lifecycle-report.json` 给出前后五次中位数和每周期私有提交斜率；不把受系统回收影响的工作集硬编码为通过阈值。
+
 默认使用 `.stage/windows-x64` 的独立版，通过 `--benchmark --background` 启动生产托盘、单实例和输入 helper，只额外启用继承管道用于测试控制。脚本用独立临时数据目录，不读取已安装应用设置。旧包保持原二进制，通过它原有的 framed RPC 启动。
 
 两种方案交替顺序分别测三次。先预热相同信号、等待 22 秒回收空闲缓存，再采样；连续信号每 200 ms 预览一次，同一份动态 WebP 每 1.8 秒重播。每个采样窗默认 6 秒，记录窗末的内存及整个窗口的 CPU 时间差。CPU 为单核等效百分比，并非任务管理器按逻辑处理器总数归一化的比例；若子进程在窗口内退出，CPU 可能低估，原始数据记录其数量。

@@ -409,6 +409,33 @@ async function main() {
       } finally { await crash.close(); }
       results.push('forced main-process termination leaves no helper or settings descendants');
     }
+
+    if (desktop && process.platform === 'linux' && process.env.LOLPING_PRIVATE_XVFB === '1') {
+      // The CI's private dbus-run-session deliberately has no tray host. Exercise
+      // normal startup here: headless-test intentionally skips tray creation.
+      const fallback = new Rpc(root, data, executable, { production: true });
+      try {
+        await fallback.waitFor(event => event.event === 'ui/ready', 30000);
+        const diagnostics = await fallback.poll('diagnostics', value => value.settingsPid > 0 && value.helperPid > 0);
+        assert.match(fallback.log, /No system-tray host is available/);
+        const duplicate = spawnSync(executable, ['--background', '--root', root, '--data-dir', data], {
+          cwd: root, encoding: 'utf8', timeout: 10000,
+        });
+        assert.equal(duplicate.status, 0, `Second launch failed: ${duplicate.stderr}`);
+        assert.equal((await fallback.request('diagnostics')).helperPid, diagnostics.helperPid);
+        assert.equal((await fallback.request('diagnostics')).settingsPid, diagnostics.settingsPid);
+        await fallback.request('ui/close');
+        let timer;
+        const exited = await Promise.race([
+          fallback.exited,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tray-less app remained hidden after its control window closed')), 7000); }),
+        ]).finally(() => clearTimeout(timer));
+        assert.equal(exited.code, 0);
+        await assertProcessGone(diagnostics.helperPid, 'tray-less app exit');
+        await assertProcessGone(diagnostics.settingsPid, 'tray-less app exit');
+      } finally { await fallback.close(); }
+      results.push('Linux without a tray opens visible controls; duplicate launch reuses them and closing exits cleanly');
+    }
     mkdirSync(dirname(reportPath), { recursive: true });
     const report = { target, desktop, passed: results, skipped, at: new Date().toISOString(), dataDirectory: data };
     writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
