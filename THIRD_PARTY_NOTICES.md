@@ -1,0 +1,13 @@
+# Third-party notices
+
+LOLPing Lite derives its native core from [Ezreal-byte/dbx-lolping-plugin](https://github.com/Ezreal-byte/dbx-lolping-plugin), version 0.2.2, fixed commit `5d9eaf15e88f82586a5fc0d958bc6f77a10f7157`. The original ping wheel, animations, input helper, app icon and tests come from [darrenprx/lolPing](https://github.com/darrenprx/lolPing), fixed revision `b947aab8d379015687117544191160bd82141954`. Thanks to Darren and all upstream contributors. The upstream MIT license is reproduced in LICENSE. This independent application replaces the DBX transport and React settings with Rust native settings and a desktop tray, adds Linux X11 surfaces, and retains the native input behavior and offline resource packs.
+
+League of Legends ping and emote icons, animations and sounds are © Riot Games. They are **not covered by the MIT license**. This project is not endorsed by Riot Games and does not reflect the views of Riot Games. League of Legends and Riot Games are trademarks of Riot Games, Inc. The optional emote pack contains the same Riot-owned assets, with byte-for-byte upstream checksums.
+
+No DBX SDK, React, Electron, Wry, WebView2 or browser engine is included in this application. egui/eframe and Tao are Apache-2.0/MIT licensed; tiny-skia is BSD-3-Clause licensed; rodio is MIT/Apache-2.0 licensed. Cargo.lock and package-lock.json record dependency versions and source registries. JavaScript packaging tools are development dependencies and are not an application runtime. System GTK/Cairo and other Linux libraries bundled in the AppImage retain their notices; their license information is included by the packaging process.
+
+Ogg Opus emotes are decoded by libopus through the `opus` and `opusic-sys` Rust crates; the `ogg` crate demultiplexes their packets. libopus copyright and redistribution terms are reproduced in `licenses/opus-COPYING`. Original sound files are shipped unchanged.
+
+Native overlay labels use the unmodified Inter 4.1 font by The Inter Project Authors, embedded in the backend under the SIL Open Font License 1.1. See `licenses/Inter-OFL.txt` and `backend/resources/README.md` for its source and checksum. `ttf-parser` (MIT/Apache-2.0) converts the fixed labels to cached vector outlines.
+
+Native settings include **LOLPing UI**, a renamed subset of Noto Sans CJK SC Regular, copyright © 2014–2021 Adobe, under the SIL Open Font License 1.1. See `resources/fonts/README.md` for the source and reproducible subset procedure, and `resources/fonts/OFL.txt` (distributed as `licenses/NotoSansCJK-OFL.txt`) for the license. The original reserved font name is not used for the modified font. Available system fonts are preferred for wider character coverage.

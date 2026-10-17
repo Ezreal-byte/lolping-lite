@@ -1,0 +1,11 @@
+/target/
+/backend/target/
+/backend/Cargo.lock
+/node_modules/
+/native/hook-helper/build/
+/ui/
+/dist/
+/.stage/
+/.test-data/
+/.cache/
+*.log

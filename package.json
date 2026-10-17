@@ -1,0 +1,20 @@
+{
+  "name": "lolping-lite-build",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build:resources": "node scripts/build-resources.mjs",
+    "build:helper": "node native/hook-helper/run.mjs build",
+    "test:helper": "node native/hook-helper/run.mjs test",
+    "build:backend": "cargo build --release --locked",
+    "test:backend": "cargo test --locked",
+    "build": "npm run build:resources && npm run build:helper && npm run build:backend",
+    "package": "node scripts/package.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "test:smoke": "node scripts/standalone-smoke.mjs"
+  },
+  "devDependencies": { "fflate": "0.8.2" }
+}

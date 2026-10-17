@@ -1,0 +1,730 @@
+{
+  "repository": "https://github.com/darrenprx/lolPing",
+  "revision": "b947aab8d379015687117544191160bd82141954",
+  "files": {
+    "emotes/angry_kitty.ogg": {
+      "size": 19469,
+      "sha256": "f9cde0d6b6ace84e33d8290ab0903da6c118b01f9dace37e831df26d5e4d9deb"
+    },
+    "emotes/angry_kitty.png": {
+      "size": 10594,
+      "sha256": "2511ca565b1d89b223fb22c5489b47f5aaa50407b0d981d49ce090f6c50b4310"
+    },
+    "emotes/angry_kitty.webp": {
+      "size": 930450,
+      "sha256": "3ad283b8ee8ca9aeca6095894af508fea7a655890826d2fae078a7709e50b452"
+    },
+    "emotes/bee_happy.ogg": {
+      "size": 21403,
+      "sha256": "338e7ad434d5ecd9d35f5f6b8d15b3924e88e777555e54fe7fbb6171f39aa833"
+    },
+    "emotes/bee_happy.png": {
+      "size": 13128,
+      "sha256": "f89874515981c743b253f3149f9d6f6b143c853fd74bbe44f69d0c3e8c0586d9"
+    },
+    "emotes/bee_happy.webp": {
+      "size": 1096282,
+      "sha256": "8b6928a5006e7c6f73d8234694d09ba60b1e127b3eb7af2d3c0c5a61278d5886"
+    },
+    "emotes/bee_mad.ogg": {
+      "size": 21567,
+      "sha256": "687ebee8834d5c7641c7e59c108d9b951cd1847ede655e1cdc2128028e6aeee2"
+    },
+    "emotes/bee_mad.png": {
+      "size": 12540,
+      "sha256": "24af0fe2ab9258ce78d1e1f3b0ccaeff5788c8e4b7f9272c1793b28c66c525a2"
+    },
+    "emotes/bee_mad.webp": {
+      "size": 973952,
+      "sha256": "f3d72bdf4afb7984414da67fe3abb8f275b468166f19ccbf5cf9959b1fc742b4"
+    },
+    "emotes/bee_sad.ogg": {
+      "size": 27968,
+      "sha256": "9e0cf4aca76532ea19f73dd752075d80d811858946f82b5f56b192875c808654"
+    },
+    "emotes/bee_sad.png": {
+      "size": 12377,
+      "sha256": "622810fcaaeb987f9862a73c2830783aa6b2382f66a7c5eb9499104dd4bd73ca"
+    },
+    "emotes/bee_sad.webp": {
+      "size": 1253126,
+      "sha256": "5fb098bf46629339a02c90a968689c56db409a48210d6716123e1787a1169e46"
+    },
+    "emotes/call_me.ogg": {
+      "size": 34680,
+      "sha256": "4f298aac632e6ab72e1306c11eaa23a367e379b07d1ab1a2fa96f56d9f5ddc9a"
+    },
+    "emotes/call_me.png": {
+      "size": 15437,
+      "sha256": "49d27fcff38600056adbf0acf117553398dbaf1c5512d921b2b59b65839ef0b5"
+    },
+    "emotes/call_me.webp": {
+      "size": 1252012,
+      "sha256": "e5bc4bac36090f9db9da04619fa073bdd1f2ecaf6c96c9806be3e1c1d37af57a"
+    },
+    "emotes/cheeky_poro.ogg": {
+      "size": 17831,
+      "sha256": "8682faeb41205ca338d2ed7eb2b750f7fd5d467913ec0d9362d666987d9397ad"
+    },
+    "emotes/cheeky_poro.png": {
+      "size": 10125,
+      "sha256": "81ce38889d01de46aa8d69c2ae4f177222c3fb6c2386568d07ed2e521469737f"
+    },
+    "emotes/cheeky_poro.webp": {
+      "size": 1099352,
+      "sha256": "9a33a97f5cba37c2e4f4658c58254e94615bf07542e8da3c02b40465dd8940c6"
+    },
+    "emotes/come_again.ogg": {
+      "size": 29397,
+      "sha256": "b74ce222cc7056341c8c68335e3702b0a8768ce7e99432c7619eeb57287651a8"
+    },
+    "emotes/come_again.png": {
+      "size": 14186,
+      "sha256": "7323af74d1656c6b1d911a950a354c52d4ee5d58094b60fe7a930de1be433a20"
+    },
+    "emotes/come_again.webp": {
+      "size": 892504,
+      "sha256": "8034c5a771696ec9a0a20c269e075639ed5c8ccccc2a98f69927f29046f80026"
+    },
+    "emotes/come_at_me.ogg": {
+      "size": 18058,
+      "sha256": "9f3242cda3e8d7ea645a3ef9e481b9a4db40ba82a92dfd4ecd09ee7fe60b3aa7"
+    },
+    "emotes/come_at_me.png": {
+      "size": 12094,
+      "sha256": "00e0020d430f84e9dfad5cef0053a550c31dcc9a9419876523156038df35240e"
+    },
+    "emotes/come_at_me.webp": {
+      "size": 1047010,
+      "sha256": "5979a9aa7218f2eb0c74adf81ffd9218b0c5dd5abb944c5d48db97c50c479e07"
+    },
+    "emotes/despair.ogg": {
+      "size": 23665,
+      "sha256": "fae7f496e9d110f5e792a4fafffe6605b7659c35c1358b24eb5987a6edc82efe"
+    },
+    "emotes/despair.png": {
+      "size": 11852,
+      "sha256": "23224c1fbe052171fa44ffe16d1be25a4353e1322c5b3f15fb205906d15349a5"
+    },
+    "emotes/despair.webp": {
+      "size": 1294296,
+      "sha256": "4f5f9627a80cebe61d117fe2cf6c9eadf491a0ee442e518c3ef364c66655c297"
+    },
+    "emotes/did_you_just.ogg": {
+      "size": 16797,
+      "sha256": "da47c6af34cd37f187a9d4ac180952e69418b4f190481b9739e32d14b80f698b"
+    },
+    "emotes/did_you_just.png": {
+      "size": 15509,
+      "sha256": "948051cc52dba105b327ccf375500af607a8cf225594058ea934d202b8604060"
+    },
+    "emotes/did_you_just.webp": {
+      "size": 1209614,
+      "sha256": "f0b25af7ffe678f600c6c23a9416dcebb119699010162ee665360f8192101a0e"
+    },
+    "emotes/does_not_compute.ogg": {
+      "size": 15547,
+      "sha256": "fc205c24a9ba71560ce4da226b030a843d490c4a8d2009f0aeaa81593a5e0cef"
+    },
+    "emotes/does_not_compute.png": {
+      "size": 15504,
+      "sha256": "fd6d22b5ec15ae534bc91537ff3795495afe795b2329985d1352b23b017eca5d"
+    },
+    "emotes/does_not_compute.webp": {
+      "size": 1310522,
+      "sha256": "2d1382460cd0cdd5a789aaef51293815fb9bc21c4eb58fe46c4b03d69f818ff0"
+    },
+    "emotes/dont_make_me_laugh.ogg": {
+      "size": 20802,
+      "sha256": "c05c64d584760ee4121e1c70e6efd095ccb7a18f8d85b09cf83ba8208042e01b"
+    },
+    "emotes/dont_make_me_laugh.png": {
+      "size": 12190,
+      "sha256": "28ddbe3de16f50d054f2525aae26e0ade0486fe69d1f797a4bdb0b555a467756"
+    },
+    "emotes/dont_make_me_laugh.webp": {
+      "size": 1207594,
+      "sha256": "5eae350b32897f5e41327ba3d376b45b53f025a8ffa78cf9496bf80b50d611cb"
+    },
+    "emotes/facepalm.ogg": {
+      "size": 11473,
+      "sha256": "4d40ac5132df760dbc2ad4f05f72867e62347c309c8696787e8a7e8bb31ce5da"
+    },
+    "emotes/facepalm.png": {
+      "size": 12195,
+      "sha256": "1f821115b0c7ccde16396afc1dcef6f094c1ede64573ac5a1a2f3fee8fad9770"
+    },
+    "emotes/facepalm.webp": {
+      "size": 1208048,
+      "sha256": "c2b0165d43ee162275740e551d7a03467ddeb90bda64ffe6852ee9751157f9a5"
+    },
+    "emotes/gasp.ogg": {
+      "size": 10324,
+      "sha256": "385e3ef8cb7008cf700cdded42c1f44df316d02505b13d2f35ae7b6d24dfb379"
+    },
+    "emotes/gasp.png": {
+      "size": 11175,
+      "sha256": "80ac18ad7399808e035bfe4041997f905f2d0406f8aabacd8fc179612a56e47c"
+    },
+    "emotes/gasp.webp": {
+      "size": 1168660,
+      "sha256": "e0932f7bde0734d2f17bb78f40f7df701a7335ff74dfe660fbe72bb93ed94ab3"
+    },
+    "emotes/gg_heart.ogg": {
+      "size": 14640,
+      "sha256": "942dac84603a0fc656a0391386fe804bb5ea38816540bbaffbb7b1fa7ae58602"
+    },
+    "emotes/gg_heart.png": {
+      "size": 10710,
+      "sha256": "d6b4b1a8dd441db6b1913028298ac7a0f4a58ff3ae4b8f5a386e47462dd14922"
+    },
+    "emotes/gg_heart.webp": {
+      "size": 1014818,
+      "sha256": "9e7aba25fd580ace76c62b8423ea894b6cb6f1ae1cd4e3f8bed40217af56327a"
+    },
+    "emotes/good_job_buddy.ogg": {
+      "size": 18214,
+      "sha256": "84a7593488ff0e3e65d9934bf9fc31d0ad20c76a8e523b78f7f4745c3cac02d4"
+    },
+    "emotes/good_job_buddy.png": {
+      "size": 13195,
+      "sha256": "b66b6094beea0729865c505f47d53b1a162fb0f16c9eb662bfee2880dc3e796d"
+    },
+    "emotes/good_job_buddy.webp": {
+      "size": 1087198,
+      "sha256": "362d145d9338791e4c89d247b6382ebdf9ff025bbcea5db3d68d05f45b35dadf"
+    },
+    "emotes/haha_hilarious.ogg": {
+      "size": 18978,
+      "sha256": "c19a85c9002b586582c9802d09fb8991c1e41a3edb74c77043f1908faa249881"
+    },
+    "emotes/haha_hilarious.png": {
+      "size": 11865,
+      "sha256": "939394696837a8ff5ba033740c84622ccb8c0270b528b917485c91db839200ed"
+    },
+    "emotes/haha_hilarious.webp": {
+      "size": 968200,
+      "sha256": "1872988a58c41c71160496239a44c702c609229eebbd7502a0c6eb407507455a"
+    },
+    "emotes/hats_off.ogg": {
+      "size": 34076,
+      "sha256": "fd4f08a615964c0c25609a3824eb45bd91488720aab92fcfdac2a9d6f2621187"
+    },
+    "emotes/hats_off.png": {
+      "size": 11581,
+      "sha256": "bb59d44ecc011242ae45c77f1cc41c2241c860b8b77a70e47a17947f95b00b02"
+    },
+    "emotes/hats_off.webp": {
+      "size": 1247540,
+      "sha256": "911024e171eab5e605390a992b2cdf81456c39a692ed22956a3ddf9371a2ea00"
+    },
+    "emotes/how_could_you.ogg": {
+      "size": 19630,
+      "sha256": "ff7ce75efca3df0d2d3ff74b04d426fdd3dafda737c8d729d92afa1590dc4729"
+    },
+    "emotes/how_could_you.png": {
+      "size": 11927,
+      "sha256": "838152721fba2865c6498909289b3f9969b4bfbe3eb459dba319140636ea12d8"
+    },
+    "emotes/how_could_you.webp": {
+      "size": 1322936,
+      "sha256": "1d333646a5622bb17e1e94803d172db5f81d776574a45266d6cf6349be2e7d32"
+    },
+    "emotes/i_will_destroy_you.ogg": {
+      "size": 21966,
+      "sha256": "70b341625502dad812ac9026c3e0b7945978e2a8e45eb94fe9eb76f6a935617f"
+    },
+    "emotes/i_will_destroy_you.png": {
+      "size": 15114,
+      "sha256": "c69013d0ec22b9a69dcffd3897f4dd84dcb067c965092f9ae5bf8e1d23323cec"
+    },
+    "emotes/i_will_destroy_you.webp": {
+      "size": 1188296,
+      "sha256": "ec1802c542b38e3a00c792701119d4af996b97c38c234c1d7a8f686b03184797"
+    },
+    "emotes/laughing_out_loud.ogg": {
+      "size": 25889,
+      "sha256": "f107eb66be562af2f1d7b5672197c91d7756cfb48c7c7c463dccca5300f6c37c"
+    },
+    "emotes/laughing_out_loud.png": {
+      "size": 11324,
+      "sha256": "9de708856b67d83ca48a190f60b309f1204281c9e0b8a566f7ba2cf670ed3017"
+    },
+    "emotes/laughing_out_loud.webp": {
+      "size": 720210,
+      "sha256": "f3144b927314086cbda0c8ed1b09f9e201677d6dcd0a20d16da9bb7a99fe487b"
+    },
+    "emotes/magpie_oopsie.ogg": {
+      "size": 19522,
+      "sha256": "5a9595ce9c5ac1e3b597eca33a030ce44309110540acc639974d87698a939273"
+    },
+    "emotes/magpie_oopsie.png": {
+      "size": 14304,
+      "sha256": "c2796ad8fce6d5e6b18e6044aa3e4a962ca6fc58233970261673d9ffab9e0c5f"
+    },
+    "emotes/magpie_oopsie.webp": {
+      "size": 1311476,
+      "sha256": "a480ae7df786397200beb6db6f5609e955402e1541af5fcb7d825d9f96f6f2b6"
+    },
+    "emotes/maybe_next_time.ogg": {
+      "size": 8733,
+      "sha256": "535bc16faf8876b3c5fa959ffbc19342e1234654bf46ed0946318b4bc70dfb72"
+    },
+    "emotes/maybe_next_time.png": {
+      "size": 17379,
+      "sha256": "780da261d3fc1b916fcbe1b436122544df06c031ade353a7b8b217ea8814a9a6"
+    },
+    "emotes/maybe_next_time.webp": {
+      "size": 920070,
+      "sha256": "9cf4408027c35903065d63cbd5011303dd2ad350446d4ea929bf6b6f37ec19d1"
+    },
+    "emotes/nice.ogg": {
+      "size": 11750,
+      "sha256": "29e5d738cc0f8125bf6a3ea913dfeaa857532d9bb805957f9847fe954c21e58d"
+    },
+    "emotes/nice.png": {
+      "size": 10309,
+      "sha256": "157fa8a7de0c2ce0bd92d675a63d758ed965c0dfd4563811923d0d53c85b3f40"
+    },
+    "emotes/nice.webp": {
+      "size": 1165170,
+      "sha256": "0fe6cecb8f8efd0bcbccfb870b53542f41ba01d0108ba9d609cc67b18e4455ee"
+    },
+    "emotes/nice_try.ogg": {
+      "size": 8777,
+      "sha256": "ac1e7bcac002059c5cd72614962d4d974db23b4b6a11688f8276311d6bae4897"
+    },
+    "emotes/nice_try.png": {
+      "size": 14156,
+      "sha256": "3aa4c56e777ea43d75e74ebd7b83830b5ca6ddd6166375414074377e3e400a40"
+    },
+    "emotes/nice_try.webp": {
+      "size": 1264670,
+      "sha256": "c0a3b160adb55a9cca6f7d0b8278772b1abeab47d9c20bedfdcee9f4c67cb637"
+    },
+    "emotes/not_today.ogg": {
+      "size": 27679,
+      "sha256": "a0e1e0db4c339b59c7b5a53905c89963aefcc6f00dc8dd3de69ff7e6adff5636"
+    },
+    "emotes/not_today.png": {
+      "size": 17797,
+      "sha256": "4d79a02786f1c486d84e1b5247d72543ef94bd164538260f0bf4c8ba19bcc4b5"
+    },
+    "emotes/not_today.webp": {
+      "size": 1147688,
+      "sha256": "ccc7004f0dcd3d03d7086dc7d4530ef7806ba45b8e8efc8e2f81f2d3f27914dd"
+    },
+    "emotes/oh.ogg": {
+      "size": 32649,
+      "sha256": "b6a1619047a4fe3c048645e029585528b9c196166d87b53ab40c36cab648761b"
+    },
+    "emotes/oh.png": {
+      "size": 14177,
+      "sha256": "bfb37ae7c56738cee284961ea7a9b079377020b0bcef91cd5a8812ee1e1c13a9"
+    },
+    "emotes/oh.webp": {
+      "size": 1039896,
+      "sha256": "e928efc8a38b48147a3f63cc88f75265aee609fcbb97f04347b71804e6bf99ff"
+    },
+    "emotes/okay.ogg": {
+      "size": 5189,
+      "sha256": "f01152d05c7836f5a3ac93b07b9b5e0916fbee42189d217c908e2697dc599752"
+    },
+    "emotes/okay.png": {
+      "size": 12858,
+      "sha256": "3dfff8249f887da2cb1ed0bcf8042343be3302a8289fec7ae6140f37488467ca"
+    },
+    "emotes/okay.webp": {
+      "size": 1248972,
+      "sha256": "850d8967b65802249a94b0b72ac8947ed83280e401950fc897e5258511a4ba1b"
+    },
+    "emotes/omg_love_it.ogg": {
+      "size": 35336,
+      "sha256": "a549da94840b340ba72863759dec8f8487ac7cdd960ed24c7cef8d5e4708a3cb"
+    },
+    "emotes/omg_love_it.png": {
+      "size": 13315,
+      "sha256": "1685fec3caa14d5da112816f479b1b96d1f2ea6d9bee71bc0e4838d7e369043d"
+    },
+    "emotes/omg_love_it.webp": {
+      "size": 1296810,
+      "sha256": "dc4a655662f9a7f45b470cf62adc3abbe49c02721068e0e56c3fe5b3ad0072c1"
+    },
+    "emotes/pain.ogg": {
+      "size": 40745,
+      "sha256": "88b7f3282a2512a870d3bcd893f701c72126a1bede9782a6091ddc58d4f8f00e"
+    },
+    "emotes/pain.png": {
+      "size": 10151,
+      "sha256": "a01b6e02c43859160d643c26fed044335c82416c559357640c28623e124e7313"
+    },
+    "emotes/pain.webp": {
+      "size": 1204864,
+      "sha256": "a231d184b6ca406ec3f521b6aed1d6ab9d42397eb454bd37eb0a3f2474f6de34"
+    },
+    "emotes/poro_ride.ogg": {
+      "size": 23240,
+      "sha256": "ebb40144b1d943158a7b1f074d83028f8296b08bbe0206a6c26d4312d095d9b5"
+    },
+    "emotes/poro_ride.png": {
+      "size": 14551,
+      "sha256": "2d8cf23ce6c8d58f9502643328c9297d14884b76b3d4b720ed4d815c5e31f3b1"
+    },
+    "emotes/poro_ride.webp": {
+      "size": 1531840,
+      "sha256": "0b4f157c45f25e028235dd416077fdf0823c316a040154523c20da957f196ddb"
+    },
+    "emotes/poro_snax.ogg": {
+      "size": 23644,
+      "sha256": "4e7897102a9452497dcb63ea8802b5c17af8cbc4fc83a9745ace93d66e5f16a5"
+    },
+    "emotes/poro_snax.png": {
+      "size": 12936,
+      "sha256": "4d5956c9fc4e8a210ef9ee6037a184033b2464f317fb9f5c9af194c75cd85331"
+    },
+    "emotes/poro_snax.webp": {
+      "size": 1215480,
+      "sha256": "95f45d282a5d23cba1c69e907b9a0a969c21fa907882100b0d89751fd973113c"
+    },
+    "emotes/sad_kitten.ogg": {
+      "size": 14304,
+      "sha256": "d47445ac21b017d27755fdb40f2cb9c600a222a5ed499b9ab25a95f6e9060b20"
+    },
+    "emotes/sad_kitten.png": {
+      "size": 10971,
+      "sha256": "ada52083228c08faf3bc631758c07d778d41a147f53a34bd90ec15031980ba3e"
+    },
+    "emotes/sad_kitten.webp": {
+      "size": 1228748,
+      "sha256": "dbe7decc453f0140a4920bfd97b7e477ba5f9dad2b9b13b19dc61d6437eceb0c"
+    },
+    "emotes/scout_approved.ogg": {
+      "size": 28497,
+      "sha256": "c2fa1cf5fac0e0063addd282c6d2c5c86554d8354300f249aa1f35df5f6d3a46"
+    },
+    "emotes/scout_approved.png": {
+      "size": 12927,
+      "sha256": "b337c3d21cd403adba0062b7b9b50aa6d74d7b8d4cfce1858fbb048b81cedeed"
+    },
+    "emotes/scout_approved.webp": {
+      "size": 1217654,
+      "sha256": "92b9704067d6d57dffa9ae7d15903c19447a01067d10740cc46b12d4011715f1"
+    },
+    "emotes/snoozy_poro.ogg": {
+      "size": 27265,
+      "sha256": "226473cd3805650c6839f253c41a8f145d11e66a7eb5aa00d6e9d6b9028ab494"
+    },
+    "emotes/snoozy_poro.png": {
+      "size": 15519,
+      "sha256": "b8ae4fe14a9682c7a0fe31d6e6b000d39fd702baa07dd7059c33922df6f129c6"
+    },
+    "emotes/snoozy_poro.webp": {
+      "size": 1159998,
+      "sha256": "be03b211b67067a1be179556ef74cf6d7bf36aafcb06842d9477da1bf19f5b3d"
+    },
+    "emotes/such_foolishness.ogg": {
+      "size": 20397,
+      "sha256": "57dba4ed24d88a32a029a84d80191eac2aff4fc377e7df6e3f2b8d342b218925"
+    },
+    "emotes/such_foolishness.png": {
+      "size": 11368,
+      "sha256": "8f958a779d850565a8760267f47e5037dccb777af8118366b97f560a3cdcfcdf"
+    },
+    "emotes/such_foolishness.webp": {
+      "size": 682652,
+      "sha256": "a02b00cd1e042d6fb40c09fc5ff8823e8e6379acef3c460041e950e46f483a27"
+    },
+    "emotes/super_approved.ogg": {
+      "size": 39773,
+      "sha256": "944857e8d215f62b3d45c7a0cab9f8d56d7b49591ff6c77f91e06b1684934a77"
+    },
+    "emotes/super_approved.png": {
+      "size": 11886,
+      "sha256": "f6c5ef61e78b673299f491b35c1cde8b89cc81cee0adb036de987c1c22745d70"
+    },
+    "emotes/super_approved.webp": {
+      "size": 1144604,
+      "sha256": "5e7f8933da81760164b3ed0b713692f591a9568a438d8b1c0b26d646657c1bb9"
+    },
+    "emotes/teamwork.ogg": {
+      "size": 22421,
+      "sha256": "393b5d6bbcfb3411468e403a7734b271c8ab7702ccf4601015c21fb7c7f5e3a1"
+    },
+    "emotes/teamwork.png": {
+      "size": 12092,
+      "sha256": "29cb61cec3c2c4100bf5918ff5274d815524857aaf41c68c27c811bd47c94dbe"
+    },
+    "emotes/teamwork.webp": {
+      "size": 1245678,
+      "sha256": "6f836aa92c66a46c7e5abf2db45683c8e7c5429c65de3727fdf53b4d010dc232"
+    },
+    "emotes/think_about_it.ogg": {
+      "size": 28837,
+      "sha256": "50735a1df0fd90fee5f47a3bfa1c5a5ae55ba43c323b70d532f4333b1a72d47a"
+    },
+    "emotes/think_about_it.png": {
+      "size": 15809,
+      "sha256": "3109c1aa51bebbc47340812d46d4eccf00a91c975aade399483fd44c73817f2f"
+    },
+    "emotes/think_about_it.webp": {
+      "size": 1056040,
+      "sha256": "85de5c33690de20f1b31229472e04a98400114789c8a2e73ea18c79407dbfb0f"
+    },
+    "emotes/unimpressed.ogg": {
+      "size": 30106,
+      "sha256": "15e07716a7b9e00aacae12d78e1a96c14c65d7909c4a384f213ca52d1d9262e2"
+    },
+    "emotes/unimpressed.png": {
+      "size": 12633,
+      "sha256": "fcdf69d0d03e6b2fb9e3fc86989b489a99dac1fc284902353fce4274463aebcd"
+    },
+    "emotes/unimpressed.webp": {
+      "size": 1107474,
+      "sha256": "1b010182a0f09343e3fad45039712115c7b4bbaec6abce4450dd09560c0e7541"
+    },
+    "emotes/unworthy.ogg": {
+      "size": 8079,
+      "sha256": "e32db60f40fde0b1247b5d2cb88dbc1ac1b90cde1a1022bdcd5ad85dfbc54e13"
+    },
+    "emotes/unworthy.png": {
+      "size": 12843,
+      "sha256": "2a857521f8c705471c4ef3b939c05da3d22c8005d6f51bd6d7aacd554677f03c"
+    },
+    "emotes/unworthy.webp": {
+      "size": 955384,
+      "sha256": "d73ae9ccaf437be8d9b54eb948b743aaa537a7121a6e832271fa2dfcc6026439"
+    },
+    "emotes/unworthy_cn.ogg": {
+      "size": 8079,
+      "sha256": "e32db60f40fde0b1247b5d2cb88dbc1ac1b90cde1a1022bdcd5ad85dfbc54e13"
+    },
+    "emotes/unworthy_cn.png": {
+      "size": 13557,
+      "sha256": "dd84a1795245e2701dc166320521bf9e347e0fbc62a4f81f12bed59706fff1a2"
+    },
+    "emotes/unworthy_cn.webp": {
+      "size": 958372,
+      "sha256": "db99460270ef1fe987253ec415252ffe60cb3bee928cc14d5162256dcf1b636d"
+    },
+    "emotes/wahaha.ogg": {
+      "size": 25813,
+      "sha256": "b2ee1d9f4ed87d44dd1703c6a44e5c241c031fb1ba05a93a287d134cb82c7111"
+    },
+    "emotes/wahaha.png": {
+      "size": 13994,
+      "sha256": "0f7f21be58335e91bc93e8bc9aff86a8e26ca87ed838e5b7ab27ad683e3c419e"
+    },
+    "emotes/wahaha.webp": {
+      "size": 1224278,
+      "sha256": "06afb60dcd028e7fc3283a6b520af731b0bf3074024d073ae5a07d7cff59c623"
+    },
+    "emotes/woah_dizzy.ogg": {
+      "size": 32670,
+      "sha256": "9114653af22724d30dcf551d39631d73e34c1483be7e281df1d78c48faeded61"
+    },
+    "emotes/woah_dizzy.png": {
+      "size": 10788,
+      "sha256": "a1b8c4ff4550bfd3a2246bf308804a8b67303b345c69a57e315daf64203991e8"
+    },
+    "emotes/woah_dizzy.webp": {
+      "size": 1215322,
+      "sha256": "79b533f742f971d5a3e5d1bf8e7fadb7d58fa07c6feb6bd83d23349bc2a78821"
+    },
+    "textures/all_in.png": {
+      "size": 13449,
+      "sha256": "0574710c5b250ecb454ed34e4dddaed7c6a9ac169739c0e244d873e2f98d7d58"
+    },
+    "textures/assist_me.png": {
+      "size": 12160,
+      "sha256": "506d91d72e260469fa220d4642734018bbc17149bad730e2e0a2aee71979b722"
+    },
+    "textures/caution.png": {
+      "size": 8022,
+      "sha256": "3897f31bbb195a3284f10d08e18344919112e0c2e4c462316c912a99d0ab0661"
+    },
+    "textures/enemy_missing.png": {
+      "size": 8689,
+      "sha256": "85a92a2807f06b45e9e807774f467e2e0d4066702414a4f0b21e92881ea0d93a"
+    },
+    "textures/enemy_missing_flipped.png": {
+      "size": 8620,
+      "sha256": "81fdf1bd64145aad6fc87cb9b91e84d760143492207373c23d286df923878418"
+    },
+    "textures/enemy_vision.png": {
+      "size": 11511,
+      "sha256": "2dc2ca2e9ed041cfc400d47cc2fc31cd24056b73abfd300be1fa04f6fc0357d2"
+    },
+    "textures/genericping_cb_128x128.png": {
+      "size": 9358,
+      "sha256": "dac063deb4567a42895122a3bdff170bbd3436e98e2d266ee851771aecc28ba2"
+    },
+    "textures/generic_ping.png": {
+      "size": 9358,
+      "sha256": "dac063deb4567a42895122a3bdff170bbd3436e98e2d266ee851771aecc28ba2"
+    },
+    "textures/hold_ig.png": {
+      "size": 11447,
+      "sha256": "a7158debaf674bf469cebab85b2687084dfa0ead29d21372c7b49d90c4442b0f"
+    },
+    "textures/need_vision.png": {
+      "size": 9567,
+      "sha256": "c421e8a1172cd1c9c5c3a4a0e2b1e7b730ba7bf0519d90adf98824c8b6d78e1d"
+    },
+    "textures/omw.png": {
+      "size": 8864,
+      "sha256": "b67f8030fcf30aa52faa010433463574c74d9a7214f1e80f9f0e25ac5f4b07d5"
+    },
+    "textures/pingwheel_allin_render_01.png": {
+      "size": 28523,
+      "sha256": "b8299b98b81a3f5f84b491e131ea6e821052b124261a72d0508794746d77012b"
+    },
+    "textures/pingwheel_allin_render_02.png": {
+      "size": 27320,
+      "sha256": "78d5ae7bd4994c4e415c8262e2ca02f9eb5acc9e15b77946921129719e5fcd94"
+    },
+    "textures/pingwheel_baitrender.png": {
+      "size": 44735,
+      "sha256": "2ab49741ae991de061b02c4780b89d1cd7394601fd2f5331cc7128ff8ee778a1"
+    },
+    "textures/pingwheel_basicpingrender.png": {
+      "size": 36973,
+      "sha256": "454d308a425785eb56879c321d8a258f5839e41988c873ccff1e899423c79e26"
+    },
+    "textures/pingwheel_cautionrender.png": {
+      "size": 23522,
+      "sha256": "3eb15a5d9fe58a113287ac6272b8a95fce5c99055a9220792c894e7ec78e5a47"
+    },
+    "textures/pingwheel_enemyvisionrender.png": {
+      "size": 40752,
+      "sha256": "b0bff531e4f662c337c2ab3a3624d01b45718f8a4fbca3348d750a92e6620562"
+    },
+    "textures/pingwheel_omw_cb.png": {
+      "size": 16241,
+      "sha256": "67b02675c35696a352a36b94cce2062493b4ac68fe2d8c0907e4af4d6cc034fb"
+    },
+    "textures/pingwheel_pushrender.png": {
+      "size": 50169,
+      "sha256": "ce04cba1b1b82215f8447bc1ef7c55aa35761f9ffc6865dd8ba33cee945ebb0d"
+    },
+    "textures/pingwheel_retreatrender.png": {
+      "size": 40944,
+      "sha256": "269be035c1f88173a9ec76e4d5f1f5b81ae5f5091655860869563842877b791c"
+    },
+    "textures/pingwheel_targetrender.png": {
+      "size": 40034,
+      "sha256": "79ed73b4e2c13e13abac59c25af8e8f8a2649043670926146fcfcc011684a415"
+    },
+    "textures/pingwheel_visionclearedrender.png": {
+      "size": 37589,
+      "sha256": "fc88e177511bfff55ebda79b02d4666e8d83e80620ff307f9b4643491f850347"
+    },
+    "textures/push.png": {
+      "size": 12898,
+      "sha256": "a4bf19adbfe0e106e519d5dbe657a7f8c301e5ef5455edfcdde25b053efba267"
+    },
+    "textures/push_cb_128x128.png": {
+      "size": 12898,
+      "sha256": "df2822e6f194d70376e91f86f3e5dc78bd7cb2b74c214accf8b978146841b4c0"
+    },
+    "textures/retreat_cb_128x128.png": {
+      "size": 12932,
+      "sha256": "9e52b33d3371aa3a209b62f4c2cac7c0cd3b93472bec7baae1ea5fb155f3826b"
+    },
+    "textures/target.png": {
+      "size": 13263,
+      "sha256": "9027ea6f80b27f5041c7bd737dbc3a904c1c1f9858c648abac7a7efede5284f2"
+    },
+    "textures/vision_cleared.png": {
+      "size": 10431,
+      "sha256": "ad3aa4c14864fb4781cf309a755411dcfbbd293d9ce65459a8e0bb580933b5bf"
+    },
+    "sounds/AreaIsWarded.wav": {
+      "size": 491630,
+      "sha256": "79fa3b2759023665f6171ea991aab638c0f74f41f6d5858ee79ddbee77537567"
+    },
+    "sounds/Attack.wav": {
+      "size": 216410,
+      "sha256": "2e04c548d3832a46b24d8452fe17e9658f4cc74b012cda758b89c9ea1f45f480"
+    },
+    "sounds/Base.wav": {
+      "size": 86164,
+      "sha256": "5faeb0973e85fc3b768afad2f88943a51289469d302cad836623eb037d0bcb24"
+    },
+    "sounds/button.wav": {
+      "size": 139054,
+      "sha256": "6b3ac9d25c14621a0c44aa333a5a3936f19cbbb586fe79fc450cb046fbf06e59"
+    },
+    "sounds/Click.wav": {
+      "size": 139054,
+      "sha256": "6b3ac9d25c14621a0c44aa333a5a3936f19cbbb586fe79fc450cb046fbf06e59"
+    },
+    "sounds/ComeHere.wav": {
+      "size": 467922,
+      "sha256": "f6cdc7f17be6e39450e0e7cd9d418e78b3e22fd41abd9d80a84b73f779314ba9"
+    },
+    "sounds/Danger.wav": {
+      "size": 434546,
+      "sha256": "f4e81383452cfd4ad9bf6651748d3f6a33b7a73c48ff58aaebbc91b8ab34b752"
+    },
+    "sounds/Defend.wav": {
+      "size": 200182,
+      "sha256": "fd71b55980ba3d2fc44bd6d2a342fabb5f5462727bdc6f412d2ec57c4865d457"
+    },
+    "sounds/GetBack.wav": {
+      "size": 616718,
+      "sha256": "b05f7df7b57784bc472f7a18d9d279a0e1e5a7774c0a1e2ca890fba3523a67fe"
+    },
+    "sounds/MIA.wav": {
+      "size": 173086,
+      "sha256": "b44481bc4dadf360925097887f34a5114f42f324206ba6cfa4c0f117c9fe0498"
+    },
+    "sounds/OnMyWay.wav": {
+      "size": 274510,
+      "sha256": "bbc00430b8a919662a9a668a68beedc944b88cd5369241481ae3eb8538851a56"
+    },
+    "sounds/OnMyWay_caster.wav": {
+      "size": 274510,
+      "sha256": "bbc00430b8a919662a9a668a68beedc944b88cd5369241481ae3eb8538851a56"
+    },
+    "sounds/OnMyWay_Close.wav": {
+      "size": 274510,
+      "sha256": "bbc00430b8a919662a9a668a68beedc944b88cd5369241481ae3eb8538851a56"
+    },
+    "sounds/OnMyWay_Far.wav": {
+      "size": 759322,
+      "sha256": "7a93027cdd56e639787c267ec0efa005d4dd42d292fcc70c37a4e1e11f8c49b6"
+    },
+    "sounds/OnMyWay_recipient.wav": {
+      "size": 759322,
+      "sha256": "b1fb46dd89dcb82da1e4db471d03d1fa8ef3bc3ac304dd0c33a31d7604c97b29"
+    },
+    "sounds/SRP_11.wav": {
+      "size": 408158,
+      "sha256": "6f9f6423d61786403e29843ce9694900b2d00bccb8f6dde984c60d395a9cad3e"
+    },
+    "sounds/SRP_12.wav": {
+      "size": 434546,
+      "sha256": "f4e81383452cfd4ad9bf6651748d3f6a33b7a73c48ff58aaebbc91b8ab34b752"
+    },
+    "sounds/SRP_13.wav": {
+      "size": 200182,
+      "sha256": "90e956b3bede5272fd022809bc3966a70754c525f4410a7225d7bc39ab9d2a56"
+    },
+    "sounds/SRP_4.wav": {
+      "size": 296214,
+      "sha256": "c89d3bd5f56764e48b2a8c28ec7fd6b4f327a5145e6faa3e8d24ac7dbcd1eaef"
+    },
+    "sounds/SRP_6.wav": {
+      "size": 327730,
+      "sha256": "9def3ea87ff651ad02f6df56c24b74fbec48b63d5ce28d5049e36fcba4fbc373"
+    },
+    "sounds/SRP_7.wav": {
+      "size": 293514,
+      "sha256": "aca086b35e4bc6deb577d15b24bfab2b9ccd10912e4a089540d7d8abd446a700"
+    },
+    "sounds/SRP_9.wav": {
+      "size": 352774,
+      "sha256": "882b277121f50e8d404c7f89990b96833633ac4e7da33ff1a5388430361f26c5"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+name: Build native Windows, macOS and Linux apps
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            target: windows-x64
+            arch: x64
+          - os: macos-15
+            target: macos-arm64
+            arch: arm64
+          - os: ubuntu-22.04
+            target: linux-x64
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.96.0'
+      - name: Linux native libraries and private desktop test tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Verify runner architecture and Rust version
+        run: |
+          node -e "if (process.arch !== '${{ matrix.arch }}') throw Error('Unexpected runner architecture ' + process.arch)"
+          rustc --version
+      - run: npm ci --ignore-scripts
+      - run: npm run build:resources
+      - run: npm run test:helper
+      - run: cargo test --locked
+      - name: Linux helper input integration
+        if: runner.os == 'Linux'
+        run: python3 native/hook-helper/tests/linux_x11_test.py
+      - name: Linux composited surface regressions at two scales
+        if: runner.os == 'Linux'
+        run: python3 scripts/test-linux-surface.py
+      - run: cargo build --release --locked
+      - name: Stage signed/native application layout
+        run: node scripts/package.mjs --stage-only
+      # Hosted macOS cannot grant Accessibility; hosted Windows cannot represent
+      # the user's mixed-DPI desktop. Their real-desktop checks remain manual.
+      - name: Windows/macOS isolated lifecycle smoke
+        if: runner.os != 'Linux'
+        run: node scripts/standalone-smoke.mjs --no-desktop
+      - name: Linux X11 lifecycle smoke in an isolated desktop
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1280x960x24 +extension Composite +extension RENDER" dbus-run-session -- sh -c 'xcompmgr -a & compositor=$!; trap "kill $compositor 2>/dev/null || true" EXIT; sleep 1; XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 node scripts/standalone-smoke.mjs'
+      - name: Build installable and portable artifacts
+        run: npm run package
+      - name: Verify signed payload, resource indexes and hashes
+        run: npm run verify:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lolping-lite-${{ matrix.target }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+            dist/*.deb
+            dist/*.AppImage
+            dist/*.artifact.json
+            dist/*report.json
+            dist/SHA256SUMS-*.txt
+            docs/performance*.md
+            THIRD_PARTY_NOTICES.md
+
+  release-ready:
+    name: All three native builds passed
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo "All platform builds, tests and package verifications passed. Publish only these artifacts from this commit."

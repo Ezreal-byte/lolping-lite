@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "trigger": "alt", "emoteTrigger": "ctrl",
+  "dragThresholdPx": 8, "clickPing": false, "gameCheck": true,
+  "clickPingId": "generic", "wheelSizePx": 600,
+  "wheel": ["danger", "push", "omw", "allin", "assist", "needvision", "missing", "enemyvision"],
+  "toggleHotkey": { "mods": 3, "vk": 80 },
+  "pingSizePx": 110, "pingDurationS": 3.2, "keepLastPing": false,
+  "volume": 70, "muted": false, "tickSound": true, "language": "auto",
+  "emoteClick": false,
+  "emoteWheel": ["unworthy_cn", "poro_snax", "sad_kitten", "cheeky_poro", "angry_kitty", "gg_heart", "bee_happy", "bee_mad"],
+  "clickEmoteId": "facepalm", "emoteSizePx": 150, "emoteSound": true,
+  "customEmotes": []
+}

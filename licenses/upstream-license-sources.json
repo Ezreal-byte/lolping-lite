@@ -1,0 +1,38 @@
+[
+  {
+    "Url": "https://raw.githubusercontent.com/emilk/egui/3c6eb8261c3293ad9c7ea1ed58487e038860ebef/LICENSE-MIT",
+    "Name": "egui-MIT.txt"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/AccessKit/accesskit/ce8164ba92995cfa86005b6259115e08c8244253/LICENSE-MIT",
+    "Name": "AccessKit-MIT.txt"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/rustaudio/sample/97c3bb9b2363c0b46ac1633858bf1054fd02a980/LICENSE-MIT",
+    "Name": "dasp-MIT.txt"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/aclysma/profiling/8271551172eb6fa4cba47369aedd93790c623df9/LICENSE-MIT",
+    "Name": "profiling-MIT.txt"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/pdeljanov/Symphonia/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE",
+    "Name": "Symphonia-MPL-2.0.txt"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/DoumanAsh/clipboard-win/3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342/LICENSE",
+    "Name": "clipboard-win-BSL-1.0.txt"
+  },
+  {
+    "Name": "objc2-MIT.txt",
+    "Url": "https://raw.githubusercontent.com/madsmtm/objc2/d7d2fa23ceaa5e6096c923b081040e5d81b3b9df/LICENSE.md"
+  },
+  {
+    "Name": "dlopen2-MIT.txt",
+    "Url": "https://raw.githubusercontent.com/OpenByteDev/dlopen2/cc80e4a0a90d499b677fdf7743699b4b3a43a989/LICENSE"
+  },
+  {
+    "Url": "https://raw.githubusercontent.com/tauri-apps/libappindicator-rs/eafd1e3682a1247f595410266091e9684021cb6f/LICENSE-MIT",
+    "Name": "libappindicator-MIT.txt"
+  }
+]
