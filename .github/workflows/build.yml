@@ -107,6 +107,10 @@ jobs:
             dist/*report.json
             dist/SHA256SUMS-*.txt
             docs/performance*.md
+            docs/performance*.json
+            docs/validation-0.2.0.md
+            docs/ui-0.2.0-*.json
+            design-qa.md
             THIRD_PARTY_NOTICES.md
 
   release-ready:

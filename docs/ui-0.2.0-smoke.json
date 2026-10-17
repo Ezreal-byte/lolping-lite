@@ -1,0 +1,29 @@
+{
+  "target": "windows-x64",
+  "desktop": true,
+  "passed": [
+    "self-test validates packaged resources without starting a desktop UI",
+    "test mode stays stopped, uses nine core emotes and keeps autostart disabled",
+    "settings validation clamps limits and rejects invalid request shape",
+    "settings events omit thumbnails and unchanged updates do not broadcast",
+    "custom images import; duplicate, relative-path and oversized imports are rejected",
+    "custom OGG sound attaches to the selected local emote",
+    "offline extension import is idempotent and rejects corrupt or traversal archives",
+    "removing a custom emote preserves built-in and extension assets",
+    "native preview works without input hooks and without Windows DWM frames",
+    "repeated start and appearance changes preserve the input helper and its configuration",
+    "shortcut capture restores both a previous manual pause and a previous running state",
+    "idle buffers release, burst previews wake correctly, and pausing clears the native surface",
+    "settings open/close 20 times without residual settings processes or restarting input hooks",
+    "settings-process crash does not stop signaling and the settings window can reopen",
+    "stop removes every overlay and releases the input helper",
+    "controller pipe EOF cleans up both the input helper and settings process",
+    "restart retains settings and extension resources in the independent app data directory",
+    "forced main-process termination leaves no helper or settings descendants"
+  ],
+  "skipped": [],
+  "at": "2026-10-17T12:37:37.459Z",
+  "dataDirectory": "<isolated-test-data>",
+  "version": "0.2.0",
+  "executableSha256": "aa9fae2779a16ddbbfd3513fd98920421c3aaabcd27939d9a0567cbaf526304f"
+}

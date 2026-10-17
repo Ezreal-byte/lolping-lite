@@ -1,7 +1,6 @@
 //! Native settings live in a short-lived process. Only the parent owns settings
 //! and media files; this process exchanges JSON lines over inherited pipes.
-use base64::Engine;
-use eframe::egui::{self, Color32, RichText, Vec2};
+use eframe::egui::{self, Color32, Vec2};
 use serde_json::{json, Map, Value};
 use std::{
     collections::{HashMap, VecDeque},
@@ -10,7 +9,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod design;
 mod keys;
+mod pages;
+mod wheel_editor;
 
 fn strings() -> &'static Value {
     static STRINGS: OnceLock<Value> = OnceLock::new();
@@ -76,30 +78,25 @@ struct App {
     textures: HashMap<String, egui::TextureHandle>,
     texture_order: VecDeque<String>,
     search: String,
+    page: pages::Page,
+    emote_page: bool,
+    ping_editor: wheel_editor::EditorState,
+    emote_editor: wheel_editor::EditorState,
+    preview_ping: String,
     test_exit: Option<Instant>,
 }
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        install_fonts(&cc.egui_ctx);
-        let mut style = (*cc.egui_ctx.style_of(egui::Theme::Dark)).clone();
-        style.spacing.item_spacing = Vec2::new(10.0, 10.0);
-        style.spacing.button_padding = Vec2::new(12.0, 7.0);
-        style.spacing.interact_size.y = 30.0;
-        style
-            .text_styles
-            .insert(egui::TextStyle::Body, egui::FontId::proportional(15.0));
-        style
-            .text_styles
-            .insert(egui::TextStyle::Button, egui::FontId::proportional(14.0));
-        style
-            .text_styles
-            .insert(egui::TextStyle::Heading, egui::FontId::proportional(23.0));
-        for theme in [egui::Theme::Dark, egui::Theme::Light] {
-            let mut themed = (*cc.egui_ctx.style_of(theme)).clone();
-            themed.spacing = style.spacing.clone();
-            themed.text_styles = style.text_styles.clone();
-            cc.egui_ctx.set_style_of(theme, themed);
+        design::install(&cc.egui_ctx);
+        // Local visual QA uses app scaling without changing Windows display
+        // settings. No preference or production IPC field is created.
+        if let Some(scale) = std::env::var("LOLPING_UI_TEST_SCALE")
+            .ok()
+            .and_then(|v| v.parse::<f32>().ok())
+            .filter(|v| (1.0..=2.0).contains(v))
+        {
+            cc.egui_ctx.set_zoom_factor(scale);
         }
         let (wire_tx, wire_rx) = mpsc::channel::<Value>();
         let (local, incoming) = mpsc::channel();
@@ -159,6 +156,11 @@ impl App {
             textures: HashMap::new(),
             texture_order: VecDeque::new(),
             search: String::new(),
+            page: pages::Page::default(),
+            emote_page: false,
+            ping_editor: wheel_editor::EditorState::default(),
+            emote_editor: wheel_editor::EditorState::default(),
+            preview_ping: "missing".into(),
             test_exit: std::env::var("LOLPING_UI_TEST_EXIT_MS")
                 .ok()
                 .and_then(|v| v.parse::<u64>().ok())
@@ -457,247 +459,6 @@ impl App {
             }
         }
     }
-    fn header(&mut self, ui: &mut egui::Ui) {
-        let zh = self.zh();
-        ui.horizontal(|ui| {
-            let icon = self.texture(
-                ui.ctx(),
-                "app-icon",
-                include_bytes!("../../resources/textures/enemy_missing.png"),
-            );
-            if let Some(texture) = icon {
-                ui.image((texture.id(), Vec2::splat(48.0)));
-            }
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("LOLPing Lite");
-                    ui.weak(
-                        self.state["version"]
-                            .as_str()
-                            .unwrap_or(env!("CARGO_PKG_VERSION")),
-                    );
-                });
-                ui.label(tr(zh, "subtitle"));
-            });
-        });
-        ui.add_space(12.0);
-        egui::Frame::group(ui.style())
-            .inner_margin(16.0)
-            .show(ui, |ui| {
-                let running = self.state["status"]["state"] == "running";
-                let starting = self.state["status"]["state"] == "starting";
-                let paused = running && self.state["status"]["enabled"] != true;
-                let capture = self.state["status"]["pauseReason"] == "capture";
-                let status = if self.state.is_null() {
-                    "loading"
-                } else if capture {
-                    "capturePaused"
-                } else if paused {
-                    "paused"
-                } else {
-                    self.state["status"]["state"].as_str().unwrap_or("stopped")
-                }
-                .to_owned();
-                ui.horizontal_wrapped(|ui| {
-                    let color = if running && !paused {
-                        Color32::from_rgb(50, 180, 125)
-                    } else {
-                        Color32::from_rgb(210, 160, 65)
-                    };
-                    ui.label(RichText::new("●").color(color));
-                    ui.strong(tr(zh, &status));
-                    let enabled = !self.state.is_null() && !self.busy() && self.capture.is_none();
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::new(tr(
-                                zh,
-                                if running || starting { "stop" } else { "start" },
-                            )),
-                        )
-                        .clicked()
-                    {
-                        self.act(
-                            if running || starting { "stop" } else { "start" },
-                            json!({}),
-                        );
-                    }
-                    if running
-                        && ui
-                            .add_enabled(
-                                enabled && !capture,
-                                egui::Button::new(tr(zh, if paused { "resume" } else { "pause" })),
-                            )
-                            .clicked()
-                    {
-                        self.act("pause", json!({"on":!paused}));
-                    }
-                    ui.weak(keys::shortcut(
-                        &self.state["settings"]["toggleHotkey"],
-                        self.platform(),
-                    ));
-                });
-                ui.label(tr(
-                    zh,
-                    if capture {
-                        "capturePauseHelp"
-                    } else if paused {
-                        "resumeHelp"
-                    } else if running {
-                        "intro"
-                    } else {
-                        "stoppedHelp"
-                    },
-                ));
-                ui.weak(tr(zh, "lifecycle"));
-                if self.platform() == "linux"
-                    && (self.state["wayland"] == true
-                        || self.state["status"]["error"]
-                            .as_str()
-                            .unwrap_or("")
-                            .to_lowercase()
-                            .contains("wayland"))
-                {
-                    ui.colored_label(Color32::from_rgb(210, 140, 30), tr(zh, "unsupported"));
-                }
-                if self.state["status"]["state"] == "noAccess" {
-                    ui.label(tr(zh, "permissionHelp"));
-                    if ui.button(tr(zh, "permission")).clicked() {
-                        self.act("permission", json!({}));
-                    }
-                }
-            });
-    }
-    fn bool_row(&mut self, ui: &mut egui::Ui, key: &str) {
-        let mut value = self.state["settings"][key].as_bool().unwrap_or(false);
-        if ui.checkbox(&mut value, self.t(key)).changed() {
-            self.patch(key, json!(value), false);
-        }
-    }
-    fn slider(&mut self, ui: &mut egui::Ui, key: &str, min: f64, max: f64, step: f64, unit: &str) {
-        let mut value = self.state["settings"][key].as_f64().unwrap_or(min);
-        ui.horizontal_wrapped(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(self.t(key)));
-            let response = ui.add(
-                egui::Slider::new(&mut value, min..=max)
-                    .step_by(step)
-                    .suffix(unit),
-            );
-            if response.changed() {
-                self.patch(
-                    key,
-                    if step >= 1.0 {
-                        json!(value as u64)
-                    } else {
-                        json!(value)
-                    },
-                    true,
-                );
-            }
-            if response.drag_stopped() {
-                self.save_at = Some(Instant::now());
-            }
-        });
-    }
-    fn trigger(&mut self, ui: &mut egui::Ui, key: &'static str) {
-        let current = self.state["settings"][key].clone();
-        let platform = self.platform().to_owned();
-        let zh = self.zh();
-        ui.horizontal_wrapped(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(tr(zh, key)));
-            egui::ComboBox::from_id_salt(key)
-                .width(150.0)
-                .selected_text(keys::trigger_label(&current, &platform, zh))
-                .show_ui(ui, |ui| {
-                    for choice in [
-                        "alt", "ctrl", "shift", "win", "capslock", "mouse4", "mouse5", "off",
-                    ] {
-                        if (platform == "mac" && choice == "capslock")
-                            || (key == "trigger" && choice == "off")
-                        {
-                            continue;
-                        }
-                        if ui
-                            .selectable_label(
-                                current == choice,
-                                keys::trigger_label(&json!(choice), &platform, zh),
-                            )
-                            .clicked()
-                        {
-                            self.patch(key, json!(choice), false);
-                        }
-                    }
-                });
-            if ui.button(tr(zh, "custom")).clicked() {
-                self.begin_capture(key);
-            }
-        });
-    }
-    fn controls(&mut self, ui: &mut egui::Ui) {
-        self.trigger(ui, "trigger");
-        self.trigger(ui, "emoteTrigger");
-        ui.horizontal_wrapped(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(self.t("toggle")));
-            if ui
-                .button(keys::shortcut(
-                    &self.state["settings"]["toggleHotkey"],
-                    self.platform(),
-                ))
-                .clicked()
-            {
-                self.begin_capture("toggleHotkey");
-            }
-        });
-        ui.horizontal_wrapped(|ui| {
-            ui.add_space(190.0);
-            let current = self.state["settings"]["toggleHotkey"].clone();
-            let mut mods = current["mods"].as_u64().unwrap_or(3);
-            for (bit, label) in [
-                (1, "Ctrl"),
-                (
-                    2,
-                    if self.platform() == "mac" {
-                        "Option"
-                    } else {
-                        "Alt"
-                    },
-                ),
-                (4, "Shift"),
-                (
-                    8,
-                    if self.platform() == "mac" {
-                        "Command"
-                    } else if self.platform() == "linux" {
-                        "Super"
-                    } else {
-                        "Win"
-                    },
-                ),
-            ] {
-                let mut on = mods & bit != 0;
-                if ui.checkbox(&mut on, label).changed() {
-                    let next = if on { mods | bit } else { mods & !bit };
-                    if next & 11 != 0 {
-                        mods = next;
-                        self.patch(
-                            "toggleHotkey",
-                            json!({"mods":mods,"vk":current["vk"]}),
-                            false,
-                        );
-                    } else {
-                        self.error = self.t("hintNeedModifier").into();
-                    }
-                }
-            }
-        });
-        self.slider(ui, "dragThresholdPx", 2.0, 40.0, 1.0, " px");
-        for key in ["clickPing", "emoteClick"] {
-            self.bool_row(ui, key);
-        }
-        if self.platform() == "win" {
-            self.bool_row(ui, "gameCheck");
-        }
-    }
     fn ping_name(&self, id: &str) -> String {
         strings()[if self.zh() { "zh-CN" } else { "en" }]["pingNames"][id]
             .as_str()
@@ -713,32 +474,6 @@ impl App {
         .or_else(|| emote["name"].as_str())
         .unwrap_or(self.t("customName"))
         .into()
-    }
-    fn selection(&mut self, ui: &mut egui::Ui, key: &str, emotes: bool) {
-        let current = self.state["settings"][key]
-            .as_str()
-            .unwrap_or("")
-            .to_owned();
-        let choices = self.choices(emotes);
-        ui.horizontal_wrapped(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(self.t(key)));
-            egui::ComboBox::from_id_salt(key)
-                .width(195.0)
-                .selected_text(
-                    choices
-                        .iter()
-                        .find(|(id, _)| id == &current)
-                        .map(|(_, label)| label.as_str())
-                        .unwrap_or(&current),
-                )
-                .show_ui(ui, |ui| {
-                    for (id, label) in &choices {
-                        if ui.selectable_label(id == &current, label).clicked() {
-                            self.patch(key, json!(id), false);
-                        }
-                    }
-                });
-        });
     }
     fn choices(&self, emotes: bool) -> Vec<(String, String)> {
         if emotes {
@@ -756,84 +491,6 @@ impl App {
                 .map(|id| ((*id).into(), self.ping_name(id)))
                 .collect()
         }
-    }
-    fn wheel(&mut self, ui: &mut egui::Ui, key: &str, emotes: bool) {
-        let choices = self.choices(emotes);
-        let slots = self.state["settings"][key]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        ui.strong(self.t(key));
-        let zh = self.zh();
-        egui::Grid::new(key)
-            .num_columns(2)
-            .spacing([18.0, 8.0])
-            .show(ui, |ui| {
-                for (i, slot) in slots.iter().enumerate() {
-                    ui.horizontal(|ui| {
-                        ui.add_sized(
-                            [70.0, 25.0],
-                            egui::Label::new(
-                                strings()[if zh { "zh-CN" } else { "en" }]["slots"][i]
-                                    .as_str()
-                                    .unwrap_or(""),
-                            ),
-                        );
-                        let id = slot.as_str().unwrap_or("");
-                        egui::ComboBox::from_id_salt((key, i))
-                            .width(165.0)
-                            .selected_text(
-                                choices
-                                    .iter()
-                                    .find(|(p, _)| p == id)
-                                    .map(|(_, label)| label.as_str())
-                                    .unwrap_or(id),
-                            )
-                            .show_ui(ui, |ui| {
-                                for (next, label) in &choices {
-                                    if ui.selectable_label(next == id, label).clicked() {
-                                        let mut changed = slots.clone();
-                                        if let Some(other) = changed.iter().position(|v| v == next)
-                                        {
-                                            changed[other] = changed[i].clone();
-                                        }
-                                        changed[i] = json!(next);
-                                        self.patch(key, json!(changed), false);
-                                    }
-                                }
-                            });
-                    });
-                    if i % 2 == 1 {
-                        ui.end_row();
-                    }
-                }
-            });
-    }
-    fn pings(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_wrapped(|ui| {
-            for id in crate::settings::PINGS {
-                let icon = self.texture(ui.ctx(), &format!("ping-{id}"), ping_icon(id));
-                let button = if let Some(icon) = icon {
-                    egui::Button::image_and_text((icon.id(), Vec2::splat(32.0)), self.ping_name(id))
-                } else {
-                    egui::Button::new(self.ping_name(id))
-                };
-                if ui.add(button).on_hover_text(self.t("preview")).clicked() {
-                    self.act("preview", json!({"id":id,"wheel":"ping"}));
-                }
-            }
-        });
-        ui.separator();
-        self.slider(ui, "volume", 0.0, 100.0, 1.0, " %");
-        self.bool_row(ui, "muted");
-        self.bool_row(ui, "tickSound");
-        self.slider(ui, "pingSizePx", 60.0, 220.0, 1.0, " px");
-        self.slider(ui, "pingDurationS", 1.0, 8.0, 0.1, " s");
-        self.bool_row(ui, "keepLastPing");
-        self.slider(ui, "wheelSizePx", 300.0, 900.0, 10.0, " px");
-        self.selection(ui, "clickPingId", false);
-        ui.separator();
-        self.wheel(ui, "wheel", false);
     }
     fn texture(
         &mut self,
@@ -864,184 +521,6 @@ impl App {
         self.texture_order.push_back(id.into());
         self.textures.insert(id.into(), texture.clone());
         Some(texture)
-    }
-    fn emote_thumbnail(
-        &mut self,
-        ctx: &egui::Context,
-        emote: &Value,
-    ) -> Option<egui::TextureHandle> {
-        let id = emote["id"].as_str()?;
-        if let Some(texture) = self.textures.get(id) {
-            return Some(texture.clone());
-        }
-        let (_, data) = emote["thumbnail"].as_str()?.split_once(',')?;
-        if data.len() > 2 * 1024 * 1024 {
-            return None;
-        }
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(data)
-            .ok()?;
-        self.texture(ctx, id, &bytes)
-    }
-    fn emotes(&mut self, ui: &mut egui::Ui) {
-        ui.weak(self.t(if self.state["extraPackInstalled"] == true {
-            "packInstalled"
-        } else {
-            "packHint"
-        }));
-        ui.horizontal_wrapped(|ui| {
-            if ui.button(self.t("addImage")).clicked() {
-                self.choose_file(ui.ctx(), "image", "");
-            }
-            if ui
-                .add_enabled(
-                    self.state["extraPackInstalled"] != true,
-                    egui::Button::new(self.t("importPack")),
-                )
-                .clicked()
-            {
-                self.choose_file(ui.ctx(), "pack", "");
-            }
-            if ui.button(self.t("downloadPack")).clicked() {
-                self.act("releases", json!({}));
-            }
-        });
-        let zh = self.zh();
-        ui.add(
-            egui::TextEdit::singleline(&mut self.search)
-                .hint_text(tr(zh, "search"))
-                .desired_width(260.0),
-        );
-        let search = self.search.to_lowercase();
-        let items: Vec<Value> = self.state["emotes"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|e| {
-                search.is_empty()
-                    || self.emote_name(e).to_lowercase().contains(&search)
-                    || e["id"].as_str().unwrap_or("").contains(&search)
-            })
-            .cloned()
-            .collect();
-        let columns = ((ui.available_width() / 160.0).floor() as usize).clamp(2, 5);
-        for row in items.chunks(columns) {
-            ui.horizontal(|ui| {
-                for emote in row {
-                    egui::Frame::group(ui.style())
-                        .inner_margin(10.0)
-                        .show(ui, |ui| {
-                            ui.set_width(132.0);
-                            ui.vertical_centered(|ui| {
-                                let (rect, response) =
-                                    ui.allocate_exact_size(Vec2::splat(86.0), egui::Sense::click());
-                                if ui.is_rect_visible(rect) {
-                                    if let Some(texture) = self.emote_thumbnail(ui.ctx(), emote) {
-                                        ui.painter().image(
-                                            texture.id(),
-                                            rect,
-                                            egui::Rect::from_min_max(
-                                                egui::Pos2::ZERO,
-                                                egui::pos2(1.0, 1.0),
-                                            ),
-                                            Color32::WHITE,
-                                        );
-                                    } else {
-                                        ui.painter().text(
-                                            rect.center(),
-                                            egui::Align2::CENTER_CENTER,
-                                            "—",
-                                            egui::FontId::proportional(20.0),
-                                            ui.visuals().weak_text_color(),
-                                        );
-                                    }
-                                }
-                                if response.on_hover_text(self.t("preview")).clicked() {
-                                    self.act("preview", json!({"id":emote["id"],"wheel":"emote"}));
-                                }
-                                ui.label(self.emote_name(emote));
-                                if emote["custom"] == true {
-                                    ui.horizontal_wrapped(|ui| {
-                                        if ui.small_button(self.t("sound")).clicked() {
-                                            self.choose_file(
-                                                ui.ctx(),
-                                                "sound",
-                                                emote["id"].as_str().unwrap_or(""),
-                                            );
-                                        }
-                                        if ui.small_button(self.t("remove")).clicked() {
-                                            self.confirm = Some(Confirm::Remove(
-                                                emote["id"].as_str().unwrap_or("").into(),
-                                            ));
-                                        }
-                                    });
-                                }
-                            });
-                        });
-                }
-            });
-        }
-        self.slider(ui, "emoteSizePx", 80.0, 300.0, 1.0, " px");
-        self.bool_row(ui, "emoteSound");
-        self.selection(ui, "clickEmoteId", true);
-        ui.separator();
-        self.wheel(ui, "emoteWheel", true);
-    }
-    fn preferences(&mut self, ui: &mut egui::Ui) {
-        let zh = self.zh();
-        let language = self.state["settings"]["language"]
-            .as_str()
-            .unwrap_or("auto")
-            .to_owned();
-        ui.horizontal(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(tr(zh, "language")));
-            egui::ComboBox::from_id_salt("language")
-                .width(195.0)
-                .selected_text(match language.as_str() {
-                    "zh-CN" => "简体中文",
-                    "en" => "English",
-                    _ => tr(zh, "auto"),
-                })
-                .show_ui(ui, |ui| {
-                    for (id, label) in [
-                        ("auto", tr(zh, "auto")),
-                        ("zh-CN", "简体中文"),
-                        ("en", "English"),
-                    ] {
-                        if ui.selectable_label(language == id, label).clicked() {
-                            self.patch("language", json!(id), false);
-                        }
-                    }
-                });
-        });
-        let theme = self.state["preferences"]["theme"]
-            .as_str()
-            .unwrap_or("system")
-            .to_owned();
-        ui.horizontal(|ui| {
-            ui.add_sized([180.0, 25.0], egui::Label::new(tr(zh, "theme")));
-            egui::ComboBox::from_id_salt("theme")
-                .width(195.0)
-                .selected_text(tr(zh, &theme))
-                .show_ui(ui, |ui| {
-                    for next in ["system", "light", "dark"] {
-                        if ui.selectable_label(theme == next, tr(zh, next)).clicked() {
-                            self.state["preferences"]["theme"] = json!(next);
-                            self.act("preferences", json!({"theme":next}));
-                        }
-                    }
-                });
-        });
-        let mut autostart = self.state["preferences"]["autostart"]
-            .as_bool()
-            .unwrap_or(false);
-        if ui.checkbox(&mut autostart, tr(zh, "autostart")).changed() {
-            self.state["preferences"]["autostart"] = json!(autostart);
-            self.act("preferences", json!({"autostart":autostart}));
-        }
-        if ui.button(tr(zh, "reset")).clicked() {
-            self.confirm = Some(Confirm::Reset);
-        }
     }
     fn dialog(&mut self, ctx: &egui::Context) {
         if self.capture.is_some() {
@@ -1152,7 +631,7 @@ impl eframe::App for App {
         self.capture_input(ctx);
         let theme = self.state["preferences"]["theme"]
             .as_str()
-            .unwrap_or("system");
+            .unwrap_or("dark");
         if self.theme != theme {
             self.theme = theme.into();
             ctx.set_theme(match theme {
@@ -1171,83 +650,7 @@ impl eframe::App for App {
         if self.close_allowed {
             return;
         }
-        egui::CentralPanel::default().show(ui, |ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    ui.set_max_width(930.0);
-                    ui.add_space(14.0);
-                    self.header(ui);
-                    ui.horizontal(|ui| {
-                        if self.saving.is_some() || !self.dirty.is_empty() || self.busy() {
-                            ui.spinner();
-                        }
-                        ui.weak(self.t(if self.closing {
-                            "closeSaving"
-                        } else if self.saving.is_some() || !self.dirty.is_empty() {
-                            "saving"
-                        } else if self.busy() {
-                            "working"
-                        } else {
-                            "saved"
-                        }));
-                    });
-                    if let Some(error) = self.state["status"]["error"].as_str() {
-                        ui.colored_label(Color32::from_rgb(220, 90, 70), self.human_error(error));
-                    }
-                    if !self.error.is_empty() {
-                        ui.colored_label(Color32::from_rgb(220, 90, 70), &self.error);
-                    }
-                    if self.failed_save.is_some() {
-                        ui.horizontal(|ui| {
-                            if ui.button(self.t("retrySave")).clicked() {
-                                if let Some(patch) = self.failed_save.take() {
-                                    for (key, value) in patch {
-                                        self.dirty.entry(key).or_insert(value);
-                                    }
-                                }
-                                self.error.clear();
-                                self.flush();
-                            }
-                            if self.closing && ui.button(self.t("discardClose")).clicked() {
-                                self.close_allowed = true;
-                                ctx.request_repaint();
-                            }
-                        });
-                    }
-                    if self.state.is_null() {
-                        if self.pending.is_empty() && ui.button(self.t("retryLoad")).clicked() {
-                            self.request("state", json!({}));
-                        }
-                        return;
-                    }
-                    let enabled = !self.busy()
-                        && !self.closing
-                        && self.capture.is_none()
-                        && self.confirm.is_none();
-                    ui.add_enabled_ui(enabled, |ui| {
-                        for (name, section) in [
-                            ("triggers", Self::controls as fn(&mut Self, &mut egui::Ui)),
-                            ("pings", Self::pings),
-                            ("emotes", Self::emotes),
-                            ("preferences", Self::preferences),
-                        ] {
-                            ui.add_space(12.0);
-                            ui.label(RichText::new(self.t(name)).size(18.0).strong());
-                            egui::Frame::group(ui.style())
-                                .inner_margin(16.0)
-                                .show(ui, |ui| {
-                                    ui.set_width(ui.available_width());
-                                    section(self, ui);
-                                });
-                        }
-                    });
-                    ui.add_space(14.0);
-                    ui.weak(self.t("native"));
-                    ui.small(self.t("attribution"));
-                    ui.add_space(16.0);
-                });
-        });
+        self.draw_settings(ui);
         self.dialog(&ctx);
         // Report readiness after a rendered frame, not merely after spawning a
         // process or opening its input pipe. This is also the lifecycle-test hook.
@@ -1261,58 +664,6 @@ impl eframe::App for App {
             }
         }
     }
-}
-
-fn install_fonts(ctx: &egui::Context) {
-    let mut fonts = egui::FontDefinitions::default();
-    // A compact OFL subset guarantees all bundled Chinese labels even on minimal
-    // Linux images. Prefer a system CJK font for user-provided emote names.
-    let candidates: &[&str] = if cfg!(target_os = "windows") {
-        &[
-            "C:/Windows/Fonts/msyh.ttc",
-            "C:/Windows/Fonts/msyh.ttf",
-            "C:/Windows/Fonts/simhei.ttf",
-        ]
-    } else if cfg!(target_os = "macos") {
-        &[
-            "/System/Library/Fonts/PingFang.ttc",
-            "/System/Library/Fonts/STHeiti Light.ttc",
-        ]
-    } else {
-        &[
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
-            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-        ]
-    };
-    if let Some(bytes) = candidates.iter().find_map(|path| std::fs::read(path).ok()) {
-        fonts.font_data.insert(
-            "system-cjk".into(),
-            egui::FontData::from_owned(bytes).into(),
-        );
-        for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-            fonts
-                .families
-                .entry(family)
-                .or_default()
-                .push("system-cjk".into());
-        }
-    }
-    fonts.font_data.insert(
-        "lolping-cjk".into(),
-        egui::FontData::from_static(include_bytes!(
-            "../../resources/fonts/LOLPingUI-Regular.otf"
-        ))
-        .into(),
-    );
-    for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-        fonts
-            .families
-            .entry(family)
-            .or_default()
-            .push("lolping-cjk".into());
-    }
-    ctx.set_fonts(fonts);
 }
 
 fn ping_icon(id: &str) -> &'static [u8] {
@@ -1344,9 +695,20 @@ pub fn run() -> Result<(), String> {
                     rgba: image.into_raw(),
                 }
             });
+    let preview_width = std::env::var("LOLPING_UI_TEST_WIDTH")
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .filter(|v| (760.0..=1600.0).contains(v))
+        .unwrap_or(1120.0);
+    let preview_height = std::env::var("LOLPING_UI_TEST_HEIGHT")
+        .ok()
+        .and_then(|v| v.parse::<f32>().ok())
+        .filter(|v| (560.0..=1200.0).contains(v))
+        .unwrap_or(840.0);
     let mut viewport = egui::ViewportBuilder::default()
-        .with_inner_size([900.0, 760.0])
-        .with_min_inner_size([660.0, 500.0]);
+        .with_inner_size([preview_width, preview_height])
+        .with_min_inner_size([760.0, 560.0])
+        .with_clamp_size_to_monitor_size(true);
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
     }
@@ -1354,6 +716,7 @@ pub fn run() -> Result<(), String> {
         viewport,
         renderer: eframe::Renderer::Glow,
         persist_window: false,
+        centered: true,
         ..Default::default()
     };
     eframe::run_native(
@@ -1483,6 +846,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn changing_tabs_keeps_queued_edits_and_independent_wheel_selection() {
+        let (mut app, output) = test_app();
+        app.patch("volume", json!(42), true);
+        app.ping_editor.target = wheel_editor::Target::Slot(6);
+        app.page = pages::Page::Emotes;
+        app.emote_editor.target = wheel_editor::Target::Center;
+        app.search = "poro".into();
+        app.page = pages::Page::Sound;
+        assert_eq!(app.state["settings"]["volume"], 42);
+        assert_eq!(app.ping_editor.target, wheel_editor::Target::Slot(6));
+        assert_eq!(app.emote_editor.target, wheel_editor::Target::Center);
+        assert_eq!(app.search, "poro");
+        app.flush();
+        assert_eq!(output.recv().unwrap()["params"], json!({"volume":42}));
+        assert_eq!(
+            app.pending
+                .values()
+                .filter(|p| p.method == "settings")
+                .count(),
+            1
+        );
+        assert!(!app
+            .pending
+            .values()
+            .any(|p| p.method == "start" || p.method == "stop" || p.method == "suspend"));
+    }
     #[test]
     fn all_settings_have_bilingual_labels() {
         for key in crate::settings::defaults().as_object().unwrap().keys() {
@@ -1661,6 +1051,11 @@ mod tests {
                 textures: HashMap::new(),
                 texture_order: VecDeque::new(),
                 search: String::new(),
+                page: pages::Page::default(),
+                emote_page: false,
+                ping_editor: wheel_editor::EditorState::default(),
+                emote_editor: wheel_editor::EditorState::default(),
+                preview_ping: "missing".into(),
                 test_exit: None,
             },
             output,

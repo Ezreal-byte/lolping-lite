@@ -6,7 +6,7 @@ pub fn load(data: &Path) -> Value {
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(Value::Null);
-    json!({"theme":if ["system","light","dark"].contains(&raw["theme"].as_str().unwrap_or("")){raw["theme"].clone()}else{json!("system")},"autostart":raw["autostart"]==true,"onboarded":raw["onboarded"]==true})
+    json!({"theme":if ["system","light","dark"].contains(&raw["theme"].as_str().unwrap_or("")){raw["theme"].clone()}else{json!("dark")},"autostart":raw["autostart"]==true,"onboarded":raw["onboarded"]==true})
 }
 pub fn update(data: &Path, current: &Value, patch: &Value) -> Result<Value, String> {
     let mut next = current.clone();
@@ -53,6 +53,52 @@ fn configure_autostart(on: bool) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fresh_install_defaults_to_dark_without_enabling_autostart() {
+        let data = tempfile::tempdir().unwrap();
+        assert_eq!(
+            load(data.path()),
+            json!({"theme": "dark", "autostart": false, "onboarded": false})
+        );
+        assert!(!data.path().join("app.json").exists());
+    }
+
+    #[test]
+    fn existing_theme_is_preserved_independently_of_onboarding() {
+        let data = tempfile::tempdir().unwrap();
+        for theme in ["system", "light", "dark"] {
+            for onboarded in [false, true] {
+                let saved = json!({"theme": theme, "autostart": true, "onboarded": onboarded});
+                let bytes = serde_json::to_vec(&saved).unwrap();
+                fs::write(data.path().join("app.json"), &bytes).unwrap();
+                assert_eq!(load(data.path()), saved);
+                assert_eq!(fs::read(data.path().join("app.json")).unwrap(), bytes);
+            }
+        }
+    }
+
+    #[test]
+    fn missing_or_invalid_theme_uses_dark_without_resetting_other_preferences() {
+        let data = tempfile::tempdir().unwrap();
+        for saved in [
+            json!({"autostart": true, "onboarded": true}),
+            json!({"theme": null, "autostart": true, "onboarded": true}),
+            json!({"theme": "invalid", "autostart": true, "onboarded": true}),
+            json!({"theme": 23, "autostart": true, "onboarded": true}),
+        ] {
+            fs::write(
+                data.path().join("app.json"),
+                serde_json::to_vec(&saved).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                load(data.path()),
+                json!({"theme": "dark", "autostart": true, "onboarded": true})
+            );
+        }
+    }
+
     #[test]
     fn invalid_preference_does_not_replace_saved_settings() {
         let d = tempfile::tempdir().unwrap();

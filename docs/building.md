@@ -51,7 +51,7 @@ python3 scripts/test-linux-surface.py
 
 ## 发布
 
-先提交、push，等待 Windows、macOS、Linux 构建以及 `release-ready` 汇总任务全部通过。下载同一 commit 的 CI 产物，对照各平台 `SHA256SUMS-*.txt` 校验，再创建 `v0.1.0` Release。不要将后来本地重编译的文件替换该次 CI 产物。
+先提交、push，等待 Windows、macOS、Linux 构建以及 `release-ready` 汇总任务全部通过。下载同一 commit 的 CI 产物，对照各平台 `SHA256SUMS-*.txt` 校验，再创建与包内版本一致的标签（例如 `v0.2.0`）及 Release。不要将后来本地重编译的文件替换该次 CI 产物。
 
 随 Release 提供扩展包、SHA-256、第三方声明与实际性能报告。README 的内存降幅只写实测支持的结果，并说明旧版本、显示器、采样范围和 GPU 内存不计入的限制。
 
