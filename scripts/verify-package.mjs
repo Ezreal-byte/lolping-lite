@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
 import { root, version, target, hash, resetGenerated, executableArchitecture, run, write } from './common.mjs';
@@ -60,6 +60,8 @@ for (const artifact of metadata.artifacts) {
     const dir = resetGenerated('.cache/verify/appimage', '.cache/verify/appimage');
     run(path, ['--appimage-extract'], { cwd: dir, stdio: 'pipe' });
     const appdir = join(dir, 'squashfs-root');
+    assert.ok(lstatSync(join(appdir, '.DirIcon')).isFile(), 'AppImage icon is a regular file, not an external symlink');
+    assert.equal(hash(readFileSync(join(appdir, '.DirIcon'))), hash(readFileSync(join(root, 'assets/plugin.png'))));
     verifyTree(appdir, join(appdir, 'usr/share/lolping-lite/checksums.json'), 'usr/share/lolping-lite/', 'usr/bin/');
     assert.ok(existsSync(join(appdir, 'usr/lib/libgtk-3.so.0')));
     assert.ok(existsSync(join(appdir, 'usr/lib/libayatana-appindicator3.so.1')));

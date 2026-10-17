@@ -7,7 +7,6 @@ license = "MIT"
 [dependencies]
 eframe = { version = "=0.37.0", default-features = false, features = ["glow", "default_fonts", "system_fonts", "x11", "wayland", "accesskit"] }
 tray-icon = "=0.26.1"
-rfd = "=0.17.2"
 directories = "=6.0.0"
 interprocess = "=2.4.6"
 auto-launch = "=0.6.0"
@@ -35,6 +34,10 @@ objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSApplication"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"
+rfd = { version = "=0.17.2", default-features = false, features = ["gtk3"] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+rfd = "=0.17.2"
 
 [dev-dependencies]
 tempfile = "3"

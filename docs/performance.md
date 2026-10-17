@@ -34,6 +34,8 @@ node scripts/benchmark-windows.mjs --baseline <0.1.1-windows-x64.dbxp>
 
 两种方案交替顺序分别测三次。先预热相同信号、等待 22 秒回收空闲缓存，再采样；连续信号每 200 ms 预览一次，同一份动态 WebP 每 1.8 秒重播。每个采样窗默认 6 秒，记录窗末的内存及整个窗口的 CPU 时间差。CPU 为单核等效百分比，并非任务管理器按逻辑处理器总数归一化的比例；若子进程在窗口内退出，CPU 可能低估，原始数据记录其数量。
 
+Windows 可能复用进程编号，因此每条亲子关系都要求子进程创建时间不早于当前父进程。实际读取内存与 CPU 时再核对 `Get-Process.StartTime` 和枚举时的 `CreationDate`，允许小于 1 ms 的时间表示误差；身份变化、根进程丢失或计数器读取失败会终止测量，不能作为零样本。可运行 `pwsh -NoProfile -File scripts/benchmark/test-process-tree.ps1` 验证模拟 PID 重用、根进程缺失与时间信息缺失的处理。
+
 旧插件的设置界面依赖共享 DBX 宿主，因此“设置打开”和“关闭设置后”两项明确标为未测，不能与独立版直接同比。旧覆盖层使用机器当前安装的 WebView2 runtime。两方案均静音；预览调用实际渲染器但不注入真实键鼠输入，因此不覆盖音频内存、物理手势或输入到显示器延迟。
 
 输出 `dist/performance-windows.json` 和 `docs/performance-results-windows.md`。原始 JSON 包含系统版本、CPU 型号、显示器尺寸/缩放、匿名进程名称、采样结果和二进制校验；不包含用户名、机器名、命令行、个人路径或进程 ID。只有 `complete: true` 的完整报告可以进入 Release。

@@ -90,6 +90,7 @@ async function main() {
     method: { repetitions, sampleWindowMs: sampleMs, idleSettleMs: settleMs, signalIntervalMs: 200, emoteIntervalMs: 1800,
       settings, animation: { name: 'bee_mad.webp', sha256: sha256(animation) },
       scope: 'Complete application-descendant tree, including helper, WebView2 descendants and native settings when open. The shared DBX host is excluded from the legacy baseline.',
+      processIdentity: 'Every descendant must be created no earlier than its active parent. Get-Process StartTime must match CIM CreationDate within a 1ms comparison tolerance; PID reuse during sampling fails the measurement. Missing roots or unreadable counters are errors, not zero samples.',
       memory: 'Working set sums resident pages across processes and can double-count shared pages. Private commit is virtual committed memory, not resident RAM. GPU memory is excluded.',
       cpu: 'One-core-equivalent CPU percentage from process CPU-time deltas over the measured interval, not Task Manager normalized utilization. Exited children can make this an underestimate; the report records their count.',
       sampling: 'Memory is the end-of-window sample, not a peak or upper-bound guarantee. The two products run sequentially in alternating order on the same desktop.' },
@@ -202,7 +203,8 @@ async function main() {
   const signalCpuBefore = report.summaries.webview.signals.cpuOneCorePercent;
   const signalCpuAfter = report.summaries.native.signals.cpuOneCorePercent;
   const settingsCpuSamples = report.runs.filter(r => r.kind === 'native').map(r => r.samples.settingsOpen.cpuOneCorePercent.toFixed(2) + '%');
-  const cpuText = `连续信号的 CPU 中位数从单核等效 ${signalCpuBefore.toFixed(2)}% 变为 ${signalCpuAfter.toFixed(2)}%；动态表情从 ${report.summaries.webview.animatedEmote.cpuOneCorePercent.toFixed(2)}% 变为 ${report.summaries.native.animatedEmote.cpuOneCorePercent.toFixed(2)}%，不能把 CPU 改善推广到所有负载。设置打开的 CPU 样本为 ${settingsCpuSamples.join('、')}，表中展示中位数。0.00% 表示短采样窗内未观察到可分辨的 CPU 时间增量，不代表进程绝对不消耗 CPU。\n\n`;
+  const noCpuDecrease = signalCpuAfter >= signalCpuBefore && report.summaries.native.animatedEmote.cpuOneCorePercent >= report.summaries.webview.animatedEmote.cpuOneCorePercent;
+  const cpuText = `连续信号的 CPU 中位数从单核等效 ${signalCpuBefore.toFixed(2)}% 变为 ${signalCpuAfter.toFixed(2)}%；动态表情从 ${report.summaries.webview.animatedEmote.cpuOneCorePercent.toFixed(2)}% 变为 ${report.summaries.native.animatedEmote.cpuOneCorePercent.toFixed(2)}%。${noCpuDecrease ? '本组样本没有显示 CPU 占用下降。' : ''}不能将内存降幅解释为 CPU 改善。设置打开的 CPU 样本为 ${settingsCpuSamples.join('、')}，表中展示中位数。0.00% 表示短采样窗内未观察到可分辨的 CPU 时间增量，不代表进程绝对不消耗 CPU。\n\n`;
   let lifecycleText = '';
   const lifecyclePath = join(repository, 'dist/windows-lifecycle-report.json');
   if (existsSync(lifecyclePath)) {

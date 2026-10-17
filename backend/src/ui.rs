@@ -1367,6 +1367,122 @@ pub fn run() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "requires the private Xvfb started by scripts/test-linux-surface.py"]
+    fn linux_native_import_dialog_selects_and_cancels_without_portal() {
+        use std::{
+            ffi::{CStr, CString},
+            sync::{
+                atomic::{AtomicBool, Ordering},
+                Arc,
+            },
+        };
+        assert_eq!(std::env::var("LOLPING_PRIVATE_XVFB").as_deref(), Ok("1"));
+        assert_eq!(std::env::var("GTK_USE_PORTAL").as_deref(), Ok("0"));
+        let directory = tempfile::tempdir().unwrap();
+        let selected = directory.path().join("import-test.png");
+        std::fs::copy(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/plugin.png"),
+            &selected,
+        )
+        .unwrap();
+        let (mut app, output) = test_app();
+        let context = egui::Context::default();
+        // Exercise exactly the settings page's worker-thread picker. The GTK
+        // actions below execute on rfd's own GTK thread via its main context.
+        // They only address this process's mapped file chooser; no real input
+        // is injected and no portal or external zenity program is involved.
+        for accept in [true, false] {
+            let seen = Arc::new(AtomicBool::new(false));
+            let observed = seen.clone();
+            let filename = CString::new(selected.to_str().unwrap()).unwrap();
+            let title = app.t("selectFile").to_owned();
+            let began = Instant::now();
+            let mut selection_set = false;
+            gtk::glib::timeout_add(Duration::from_millis(150), move || unsafe {
+                use gtk::{
+                    ffi as g,
+                    glib::{ffi, gobject_ffi, ControlFlow},
+                };
+                if began.elapsed() > Duration::from_secs(10) {
+                    return ControlFlow::Break;
+                }
+                let windows = g::gtk_window_list_toplevels();
+                let mut item = windows;
+                let mut completed = false;
+                while !item.is_null() {
+                    let widget = (*item).data as *mut g::GtkWidget;
+                    let window = widget as *mut g::GtkWindow;
+                    let caption = g::gtk_window_get_title(window);
+                    if !caption.is_null()
+                        && CStr::from_ptr(caption).to_bytes() == title.as_bytes()
+                        && g::gtk_widget_get_mapped(widget) != 0
+                        && gobject_ffi::g_type_check_instance_is_a(
+                            widget.cast(),
+                            g::gtk_file_chooser_get_type(),
+                        ) != 0
+                        && gobject_ffi::g_type_check_instance_is_a(
+                            widget.cast(),
+                            g::gtk_dialog_get_type(),
+                        ) != 0
+                    {
+                        observed.store(true, Ordering::Release);
+                        if !accept {
+                            g::gtk_dialog_response(widget.cast(), g::GTK_RESPONSE_CANCEL);
+                            completed = true;
+                        } else if !selection_set {
+                            g::gtk_file_chooser_set_filename(widget.cast(), filename.as_ptr());
+                            selection_set = true;
+                        } else {
+                            let picked = g::gtk_file_chooser_get_filename(widget.cast());
+                            if !picked.is_null() {
+                                let ready =
+                                    CStr::from_ptr(picked).to_bytes() == filename.as_bytes();
+                                ffi::g_free(picked.cast());
+                                if ready {
+                                    g::gtk_dialog_response(widget.cast(), g::GTK_RESPONSE_ACCEPT);
+                                    completed = true;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    item = (*item).next;
+                }
+                ffi::g_list_free(windows);
+                if completed {
+                    ControlFlow::Break
+                } else {
+                    ControlFlow::Continue
+                }
+            });
+            app.choose_file(&context, "image", "");
+            let deadline = Instant::now() + Duration::from_secs(12);
+            while app.file_dialog && Instant::now() < deadline {
+                app.messages(&context);
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            assert!(
+                seen.load(Ordering::Acquire),
+                "native GTK file chooser was never mapped"
+            );
+            assert!(!app.file_dialog, "native GTK file chooser did not complete");
+            if accept {
+                let message = output.recv_timeout(Duration::from_secs(1)).unwrap();
+                assert_eq!(message["method"], "import");
+                assert_eq!(message["params"]["kind"], "image");
+                assert_eq!(message["params"]["path"], selected.to_str().unwrap());
+            } else {
+                assert!(
+                    output.try_recv().is_err(),
+                    "cancelling must not submit an import"
+                );
+            }
+        }
+    }
+
     #[test]
     fn all_settings_have_bilingual_labels() {
         for key in crate::settings::defaults().as_object().unwrap().keys() {

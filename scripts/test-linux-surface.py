@@ -60,6 +60,14 @@ for scale in (1, 2):
              "x11_surface_composites_edges_and_passes_clicks", "--", "--ignored", "--nocapture"],
             cwd=ROOT, env=env, check=True, timeout=900,
         )
+        if scale == 1:
+            print("Testing the native import file chooser without an XDG portal", flush=True)
+            subprocess.run(
+                ["cargo", "test", "--locked", "--manifest-path", "backend/Cargo.toml",
+                 "linux_native_import_dialog_selects_and_cancels_without_portal",
+                 "--", "--ignored", "--nocapture", "--test-threads=1"],
+                cwd=ROOT, env={**env, "GTK_USE_PORTAL": "0"}, check=True, timeout=60,
+            )
     finally:
         stop(compositor)
         stop(server)

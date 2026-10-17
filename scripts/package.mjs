@@ -64,7 +64,9 @@ if (process.platform === 'linux') {
   const desktop = `[Desktop Entry]\nType=Application\nName=LOLPing Lite\nComment=Native desktop ping and emote wheel (X11)\nExec=lolping-lite\nIcon=lolping-lite\nTerminal=false\nCategories=Utility;\nStartupNotify=false\nX-AppImage-Version=${version}\n`;
   write(join(stage, 'usr/share/applications/lolping-lite.desktop'), desktop);
   write(join(stage, 'lolping-lite.desktop'), desktop);
-  for (const path of ['lolping-lite.png', 'usr/share/icons/hicolor/128x128/apps/lolping-lite.png']) {
+  // appimagetool preserves an existing regular .DirIcon, but creates a symlink
+  // when it is missing. Keep all staged payloads regular and hash this icon too.
+  for (const path of ['.DirIcon', 'lolping-lite.png', 'usr/share/icons/hicolor/128x128/apps/lolping-lite.png']) {
     ensure(dirname(join(stage, path))); copyFileSync(join(root, 'assets/plugin.png'), join(stage, path));
   }
   write(join(stage, 'AppRun'), `#!/bin/sh\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LOLPING_ROOT="$HERE/usr/share/lolping-lite"\nexport LD_LIBRARY_PATH="$HERE/usr/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexec "$HERE/usr/bin/lolping-lite" "$@"\n`);

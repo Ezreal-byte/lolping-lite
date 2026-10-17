@@ -61,20 +61,23 @@ if ($ProcessOnly) {
     exit 0
 }
 
+. (Join-Path $PSScriptRoot 'process-tree.ps1')
+$expectedRootStart = (Get-Process -Id $RootProcess).StartTime.ToUniversalTime()
 function Read-Tree {
     $all = @(Get-CimInstance Win32_Process)
-    $ids = [Collections.Generic.HashSet[int]]::new()
-    [void]$ids.Add($RootProcess)
-    do {
-        $changed = $false
-        foreach ($entry in $all) {
-            if ($ids.Contains([int]$entry.ParentProcessId) -and $ids.Add([int]$entry.ProcessId)) { $changed = $true }
-        }
-    } while ($changed)
+    $ids = Get-ProcessTreeIds -Snapshot $all -RootId $RootProcess
+    $root = $all | Where-Object ProcessId -eq $RootProcess
+    if ([Math]::Abs(($root.CreationDate.ToUniversalTime() - $expectedRootStart).TotalMilliseconds) -ge 1) {
+        throw 'Application root PID was reused during sampling'
+    }
     $rows = @(foreach ($entry in $all) {
         if ($ids.Contains([int]$entry.ProcessId)) {
-            $sample = Get-Process -Id $entry.ProcessId -ErrorAction SilentlyContinue
-            if ($sample) {
+            try { $sample = Get-Process -Id $entry.ProcessId -ErrorAction Stop }
+            catch {
+                if (Get-CimInstance Win32_Process -Filter "ProcessId=$($entry.ProcessId)") { throw }
+                continue # The process really exited between enumeration and sampling.
+            }
+            if ([Math]::Abs(($sample.StartTime.ToUniversalTime() - $entry.CreationDate.ToUniversalTime()).TotalMilliseconds) -lt 1) {
                 [pscustomobject]@{
                     identity = "$($entry.ProcessId):$($entry.CreationDate.ToUniversalTime().Ticks)"
                     name = $sample.ProcessName
@@ -82,10 +85,12 @@ function Read-Tree {
                     privateCommitBytes = $sample.PrivateMemorySize64
                     cpuSeconds = $sample.TotalProcessorTime.TotalSeconds
                 }
+            } else {
+                throw 'Process PID was reused between enumeration and sampling'
             }
         }
     })
-    if ($rows.Count -eq 0) { throw 'Application process tree is empty' }
+    if (-not ($rows | Where-Object identity -like "$($RootProcess):*")) { throw 'Application root exited during sampling' }
     return $rows
 }
 $first = @(Read-Tree)
