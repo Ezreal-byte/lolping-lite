@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { unzipSync } from 'fflate';
 import { root, version, target, hash, resetGenerated, executableArchitecture, run, write } from './common.mjs';
 import { peImports, isVisualCppRuntime } from './pe-imports.mjs';
+import { diskImage } from './disk-image.mjs';
 
 const dist = join(root, 'dist');
 const metadata = JSON.parse(readFileSync(join(dist, `${target}.artifact.json`), 'utf8'));
@@ -41,14 +42,14 @@ for (const artifact of metadata.artifacts) {
     assert.ok(bytes.length > 1024 * 1024);
     checks.push('Windows user installer: PE signature and complete payload size');
   } else if (artifact.kind === 'disk-image') {
-    run('hdiutil', ['verify', path]);
+    await diskImage(['verify', path]);
     const mount = resetGenerated('.cache/verify/macos-mount', '.cache/verify/macos-mount');
-    run('hdiutil', ['attach', '-readonly', '-nobrowse', '-mountpoint', mount, path]);
+    await diskImage(['attach', '-readonly', '-nobrowse', '-mountpoint', mount, path]);
     try {
       const bundle = join(mount, 'LOLPing Lite.app');
       run('codesign', ['--verify', '--deep', '--strict', bundle]);
       verifyTree(bundle, join(mount, 'checksums.json'), 'Contents/Resources/', 'Contents/MacOS/');
-    } finally { run('hdiutil', ['detach', mount]); }
+    } finally { await diskImage(['detach', mount]); }
     checks.push('DMG: mounted read-only, signed arm64 app and native asset hashes verified');
   } else if (artifact.kind === 'debian') {
     const dir = resetGenerated('.cache/verify/deb', '.cache/verify/deb');

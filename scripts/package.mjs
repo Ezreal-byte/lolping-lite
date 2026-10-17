@@ -6,6 +6,7 @@ import { windowsIcon } from './icon.mjs';
 import { tool } from './tools.mjs';
 import { buildExtraEmotes } from './extra-emotes.mjs';
 import { writeRustNotices } from './license-notices.mjs';
+import { diskImage } from './disk-image.mjs';
 
 if (!target) throw Error(`Unsupported packaging host: ${process.platform}/${process.arch}`);
 const stageBase = resetGenerated(`.stage/${target}`, `.stage/${target}`);
@@ -104,8 +105,8 @@ if (process.platform === 'win32') {
   copyFileSync(checksumsPath, join(dmgRoot, 'checksums.json'));
   symlinkSync('/Applications', join(dmgRoot, 'Applications'));
   const dmg = join(dist, `${stem}.dmg`);
-  run('hdiutil', ['create', '-volname', 'LOLPing Lite', '-srcfolder', dmgRoot, '-ov', '-format', 'UDZO', '-imagekey', 'zlib-level=9', dmg]);
-  run('hdiutil', ['verify', dmg]);
+  await diskImage(['create', '-volname', 'LOLPing Lite', '-srcfolder', dmgRoot, '-ov', '-format', 'UDZO', '-imagekey', 'zlib-level=9', dmg]);
+  await diskImage(['verify', dmg]);
   record(dmg, { kind: 'disk-image', adHocSigned: true, notarized: false });
 } else {
   // Debian relies on system packages; build it before bundling shared libraries
