@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { unzipSync } from 'fflate';
 import { root, version, target, hash, resetGenerated, executableArchitecture, run, write } from './common.mjs';
+import { peImports, isVisualCppRuntime } from './pe-imports.mjs';
 
 const dist = join(root, 'dist');
 const metadata = JSON.parse(readFileSync(join(dist, `${target}.artifact.json`), 'utf8'));
@@ -26,6 +27,13 @@ for (const artifact of metadata.artifacts) {
     const contents = unzipSync(bytes);
     verifyContents(contents, '');
     assert.equal(Buffer.from(contents['lolping-lite.exe']).toString('ascii', 0, 2), 'MZ');
+    const runtime = JSON.parse(Buffer.from(contents['licenses/windows-runtime.json']).toString('utf8'));
+    assert.ok(contents[runtime.license]?.length > 1000);
+    for (const [name, bytes] of Object.entries(contents).filter(([name]) => /\.(exe|dll)$/i.test(name))) {
+      for (const dependency of peImports(bytes).filter(isVisualCppRuntime)) assert.ok(contents[dependency]?.length > 0, `${name} requires application-local ${dependency}`);
+    }
+    for (const dll of runtime.libraries) { assert.equal(hash(contents[dll.name]), dll.sha256); assert.equal(dll.signature, 'Valid'); assert.equal(dll.architecture, 'x64'); }
+    checks.push('Windows VC runtime: all PE imports resolved application-locally with Microsoft-signed DLLs, hashes and license');
     checks.push('Portable ZIP: native executables, 9 core emotes, asset hashes, no browser assets');
   } else if (artifact.kind === 'installer') {
     // NSIS installers use a 32-bit bootstrap even when the bundled app is x64.

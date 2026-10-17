@@ -41,7 +41,10 @@ export class Rpc extends EventEmitter {
     this.child = spawn(resolve(executable), [
       ...(options.production ? ['--benchmark', '--background'] : ['--headless-test']),
       '--root', this.root, '--data-dir', this.data,
-    ], { cwd: this.root, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    ], {
+      cwd: this.root, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...options.env },
+    });
     this.exited = new Promise(resolveExit => {
       this.child.once('exit', (code, signal) => {
         this.ended = true;
@@ -435,6 +438,26 @@ async function main() {
         await assertProcessGone(diagnostics.settingsPid, 'tray-less app exit');
       } finally { await fallback.close(); }
       results.push('Linux without a tray opens visible controls; duplicate launch reuses them and closing exits cleanly');
+
+      // A usable X11 DISPLAY inside a Wayland login is XWayland, not evidence
+      // of desktop-wide input access. Simulate that session on our isolated X
+      // server so native startup, settings availability and rejection are tested.
+      const wayland = new Rpc(root, data, executable, {
+        production: true, env: { XDG_SESSION_TYPE: 'wayland' },
+      });
+      try {
+        await wayland.waitFor(event => event.event === 'ui/ready', 30000);
+        const unsupported = await wayland.poll('state', value => value.status.state === 'failed');
+        assert.equal(unsupported.status.enabled, false);
+        assert.match(unsupported.status.error, /X11.*Wayland/s);
+        await assert.rejects(wayland.request('start'), /X11.*Wayland/s);
+        await assert.rejects(wayland.request('preview', { id: 'missing', wheel: 'ping' }), /X11.*Wayland/s);
+        const diagnostics = await wayland.request('diagnostics');
+        assert.ok(diagnostics.settingsPid > 0, 'unsupported sessions must retain accessible settings');
+        assert.equal(diagnostics.helperPid, null, 'Wayland must never start an X11 input helper');
+        assert.equal(diagnostics.windows, 0, 'Wayland must never create misleading partial overlays');
+      } finally { await wayland.close(); }
+      results.push('Wayland login with an X11 DISPLAY is rejected before helper/overlay creation while native settings remain accessible');
     }
     mkdirSync(dirname(reportPath), { recursive: true });
     const report = { target, desktop, passed: results, skipped, at: new Date().toISOString(), dataDirectory: data };

@@ -33,7 +33,10 @@ copyFileSync(join(root, 'resources/upstream.json'), join(data, 'upstream.json'))
 write(join(data, 'build-info.json'), JSON.stringify({ product: 'LOLPing Lite', version, target, applicationId: 'io.github.ezrealbyte.lolpinglite', source: 'https://github.com/Ezreal-byte/lolping-lite', commit, renderer: 'native-rust', signing: process.platform === 'darwin' ? 'ad-hoc, not notarized' : 'unsigned' }, null, 2) + '\n');
 for (const source of [exe, helper]) { const dest = join(bin, basename(source)); copyFileSync(source, dest); if (process.platform !== 'win32') chmodSync(dest, 0o755); }
 
-if (process.platform === 'win32') write(join(stage, 'app.ico'), windowsIcon(readFileSync(join(root, 'assets/plugin.png'))));
+if (process.platform === 'win32') {
+  write(join(stage, 'app.ico'), windowsIcon(readFileSync(join(root, 'assets/plugin.png'))));
+  await import('./bundle-windows.mjs').then(m => m.bundleWindows(stage));
+}
 if (process.platform === 'darwin') {
   const iconset = ensure(join(stageBase, 'app.iconset'));
   for (const size of [16, 32, 128, 256, 512]) for (const scale of [1, 2]) {

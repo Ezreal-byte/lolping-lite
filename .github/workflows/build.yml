@@ -75,11 +75,15 @@ jobs:
         run: node scripts/standalone-smoke.mjs --no-desktop
       - name: Linux X11 lifecycle smoke in an isolated desktop
         if: runner.os == 'Linux'
-        run: xvfb-run -a -s "-screen 0 1280x960x24 +extension Composite +extension RENDER" dbus-run-session -- sh -c 'xcompmgr -a & compositor=$!; trap "kill $compositor 2>/dev/null || true" EXIT; sleep 1; LOLPING_PRIVATE_XVFB=1 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 node scripts/standalone-smoke.mjs'
+        run: xvfb-run -a -s "-screen 0 1280x960x24 +extension Composite +extension RENDER" dbus-run-session -- sh -c 'xcompmgr -n & compositor=$!; trap "kill $compositor 2>/dev/null || true" EXIT; sleep 1; LOLPING_PRIVATE_XVFB=1 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11 node scripts/standalone-smoke.mjs'
       - name: Build installable and portable artifacts
         run: npm run package
       - name: Verify signed payload, resource indexes and hashes
         run: npm run verify:package
+      - name: Windows per-user install, upgrade and uninstall acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1 -Execute
       - uses: actions/upload-artifact@v4
         with:
           name: lolping-lite-${{ matrix.target }}

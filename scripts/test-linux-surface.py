@@ -48,8 +48,9 @@ for scale in (1, 2):
             "LOLPING_PRIVATE_XVFB": "1",
         }
         env.pop("WAYLAND_DISPLAY", None)
-        # No drop shadows or fades: make exact pixel assertions deterministic.
-        compositor = subprocess.Popen(["xcompmgr", "-a"], env=env)
+        # Normal client-side alpha compositing, without drop shadows or fades.
+        # -a uses the X server's PictOpSrc copy, which discards window alpha.
+        compositor = subprocess.Popen(["xcompmgr", "-n"], env=env)
         time.sleep(0.8)
         if compositor.poll() is not None:
             raise RuntimeError("The X11 compositor exited before the test")

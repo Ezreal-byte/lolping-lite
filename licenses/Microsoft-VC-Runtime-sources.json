@@ -1,0 +1,17 @@
+{
+  "description": "Official Microsoft runtime terms, extracted as Unicode text from the corresponding Microsoft-published DOCX. Unmodified application-local DLL redistribution is authorized by the installed Visual Studio license and redistributable-code list; these terms accompany the runtime for end users.",
+  "sources": [
+    {
+      "file": "Microsoft-VC-Runtime-2022.txt",
+      "url": "https://visualstudio.microsoft.com/wp-content/uploads/2021/09/Visual-C-Runtime-2015-2022-License-1.docx",
+      "sourceSha256": "f1e3d56ceb2ad68aae0711b910375009e651ac5530fa0760f0dea6e81e54fae1",
+      "redistribution": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution"
+    },
+    {
+      "file": "Microsoft-VC-Runtime-2026.txt",
+      "url": "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "sourceSha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "redistribution": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution"
+    }
+  ]
+}

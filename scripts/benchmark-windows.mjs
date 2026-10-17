@@ -189,6 +189,7 @@ async function main() {
   }
   report.complete = true;
   save();
+  writeFileSync(join(repository, 'docs/performance-windows.json'), JSON.stringify(report, null, 2) + '\n');
   const labels = { idle: '后台空闲', signals: '连续信号（5 次/秒）', animatedEmote: '动态表情', settingsOpen: '设置打开、无交互', settingsClosed: '关闭设置后空闲' };
   const rows = [];
   for (const scene of Object.keys(labels)) {
@@ -198,14 +199,28 @@ async function main() {
     }
   }
   const reduction = report.comparisons.idle;
+  const signalCpuBefore = report.summaries.webview.signals.cpuOneCorePercent;
+  const signalCpuAfter = report.summaries.native.signals.cpuOneCorePercent;
+  const settingsCpuSamples = report.runs.filter(r => r.kind === 'native').map(r => r.samples.settingsOpen.cpuOneCorePercent.toFixed(2) + '%');
+  const cpuText = `连续信号的 CPU 中位数从单核等效 ${signalCpuBefore.toFixed(2)}% 变为 ${signalCpuAfter.toFixed(2)}%；动态表情从 ${report.summaries.webview.animatedEmote.cpuOneCorePercent.toFixed(2)}% 变为 ${report.summaries.native.animatedEmote.cpuOneCorePercent.toFixed(2)}%，不能把 CPU 改善推广到所有负载。设置打开的 CPU 样本为 ${settingsCpuSamples.join('、')}，表中展示中位数。0.00% 表示短采样窗内未观察到可分辨的 CPU 时间增量，不代表进程绝对不消耗 CPU。\n\n`;
+  let lifecycleText = '';
+  const lifecyclePath = join(repository, 'dist/windows-lifecycle-report.json');
+  if (existsSync(lifecyclePath)) {
+    const lifecycle = JSON.parse(readFileSync(lifecyclePath, 'utf8'));
+    if (lifecycle.complete && lifecycle.version === version) {
+      writeFileSync(join(repository, 'docs/windows-lifecycle-report.json'), JSON.stringify(lifecycle, null, 2) + '\n');
+      const trend = lifecycle.memoryTrend;
+      lifecycleText = `生产模式另完成 20 次设置窗口打开／关闭：主进程私有提交的前五次中位数为 ${mib(trend.privateCommitFirstFiveMedianBytes)} MiB、后五次为 ${mib(trend.privateCommitLastFiveMedianBytes)} MiB，相差 ${(trend.privateCommitMedianChangeBytes / 1024).toFixed(0)} KiB（${trend.privateCommitMedianChangePercent.toFixed(2)}%）。设置子进程均已退出，输入 helper 全程未重启。重复启动、并发启动及 \`--quit\` 检查通过。完整序列见 [生命周期原始记录](windows-lifecycle-report.json)。\n\n`;
+    }
+  }
   const markdown = `# Windows 同机性能实测\n\n测量时间：${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())}（Asia/Shanghai）。每种方案重复 ${repetitions} 次，表中取中位数。\n\n` +
     `后台空闲的进程树工作集由 **${mib(report.summaries.webview.idle.workingSetBytes)} MiB** 降至 **${mib(report.summaries.native.idle.workingSetBytes)} MiB**，降低 **${reduction.workingSetReductionPercent.toFixed(1)}%**；私有提交降低 **${reduction.privateCommitReductionPercent.toFixed(1)}%**。这是一台 Windows 机器上的测量，不是所有平台或负载的保证。\n\n` +
     `| 场景 | 方案 | 工作集 MiB | 私有提交 MiB | CPU（单核等效） |\n|---|---|---:|---:|---:|\n${rows.join('\n')}\n\n` +
-    `环境：${hardware.os} ${hardware.osVersion}；${hardware.cpu}；${hardware.logicalProcessors} 逻辑处理器；${hardware.memoryMiB} MiB 内存。显示器：${hardware.displays.map(d => `${d.width}×${d.height}，${d.scalePercent}% 缩放`).join('；')}。\n\n` +
+    cpuText + lifecycleText + `环境：${hardware.os} ${hardware.osVersion}；${hardware.cpu}；${hardware.logicalProcessors} 逻辑处理器；${hardware.memoryMiB} MiB 内存。显示器：${hardware.displays.map(d => `${d.width}×${d.height}，${d.scalePercent}% 缩放`).join('；')}。\n\n` +
     `统计完整应用进程树，包含输入 helper、旧 WebView2 子进程和打开时的原生设置进程；新应用启用生产托盘。旧方案排除无法单独归属的共享 DBX 宿主，因此其“设置打开／关闭”两项未测，不能据此作设置页的同比结论。\n\n` +
     `两种方案使用相同尺寸、默认 9 表情及同一份 bee_mad.webp 动画，静音；连续信号通过真实渲染器的预览命令每 200 ms 发出，动态表情每 1.8 秒重新播放。空闲等待 22 秒回收缓存，采样窗 ${sampleMs / 1000} 秒。设置开关另由桌面验收执行 20 次。\n\n` +
     `工作集相加可能重复计算共享页，私有提交不等于驻留物理内存；GPU 内存未计入。内存为采样窗末的瞬时读数，不代表峰值上限。CPU 为进程累计 CPU 时间差折算的单核占用，和任务管理器按整机归一化的百分比不同。若采样期间有子进程退出，CPU 可能低估，原始数据记录了退出计数。\n\n` +
-    `测试使用当前安装的 WebView2 runtime，未固定历史浏览器版本；未模拟实际鼠标手势或统计输入到屏幕延迟。完整匿名原始数据：Release 附件 \`performance-windows.json\`；方法与复现要求见 [性能测试说明](performance.md)。\n`;
+    `测试使用当前安装的 WebView2 runtime，未固定历史浏览器版本；未模拟实际鼠标手势或统计输入到屏幕延迟。完整匿名原始数据：[performance-windows.json](performance-windows.json)，同时作为 Release 附件；方法与复现要求见 [性能测试说明](performance.md)。\n`;
   mkdirSync(dirname(markdownPath), { recursive: true });
   writeFileSync(markdownPath, markdown);
   console.log(JSON.stringify({ summaries: report.summaries, comparisons: report.comparisons }, null, 2));

@@ -1,0 +1,156 @@
+{
+  "product": "LOLPing Lite",
+  "version": "0.1.0",
+  "target": "windows-x64",
+  "complete": true,
+  "date": "2026-10-17T07:04:25.094Z",
+  "method": "Normal tray, single-instance listener and startup behavior; the benchmark flag adds only an inherited control pipe. Fresh data directory, no synthetic keyboard or mouse input. Memory samples are the main process alone after settings exit.",
+  "passed": [
+    "production background launch automatically starts the input helper and tray without opening settings",
+    "a second production launch opens existing settings; three concurrent launches reuse the same main, helper and settings processes",
+    "closing settings keeps the original input helper alive",
+    "20 production settings open/close cycles preserve the helper and leave no settings descendants",
+    "--quit delivered through the production single-instance channel terminates the main process, helper and open settings"
+  ],
+  "memorySamples": [
+    {
+      "cycle": 0,
+      "sampledAt": "2026-10-17T07:04:26.8831139+00:00",
+      "workingSetBytes": 31117312,
+      "privateCommitBytes": 15699968
+    },
+    {
+      "cycle": 1,
+      "sampledAt": "2026-10-17T07:04:28.4150152+00:00",
+      "workingSetBytes": 31125504,
+      "privateCommitBytes": 15699968
+    },
+    {
+      "cycle": 2,
+      "sampledAt": "2026-10-17T07:04:29.6069104+00:00",
+      "workingSetBytes": 31158272,
+      "privateCommitBytes": 15724544
+    },
+    {
+      "cycle": 3,
+      "sampledAt": "2026-10-17T07:04:30.8239551+00:00",
+      "workingSetBytes": 31199232,
+      "privateCommitBytes": 15765504
+    },
+    {
+      "cycle": 4,
+      "sampledAt": "2026-10-17T07:04:32.0707017+00:00",
+      "workingSetBytes": 31211520,
+      "privateCommitBytes": 15765504
+    },
+    {
+      "cycle": 5,
+      "sampledAt": "2026-10-17T07:04:33.7456199+00:00",
+      "workingSetBytes": 31219712,
+      "privateCommitBytes": 15765504
+    },
+    {
+      "cycle": 6,
+      "sampledAt": "2026-10-17T07:04:34.9773433+00:00",
+      "workingSetBytes": 31227904,
+      "privateCommitBytes": 15765504
+    },
+    {
+      "cycle": 7,
+      "sampledAt": "2026-10-17T07:04:36.3603125+00:00",
+      "workingSetBytes": 31248384,
+      "privateCommitBytes": 15785984
+    },
+    {
+      "cycle": 8,
+      "sampledAt": "2026-10-17T07:04:37.6288865+00:00",
+      "workingSetBytes": 31256576,
+      "privateCommitBytes": 15785984
+    },
+    {
+      "cycle": 9,
+      "sampledAt": "2026-10-17T07:04:39.0416535+00:00",
+      "workingSetBytes": 31264768,
+      "privateCommitBytes": 15785984
+    },
+    {
+      "cycle": 10,
+      "sampledAt": "2026-10-17T07:04:40.2366514+00:00",
+      "workingSetBytes": 31305728,
+      "privateCommitBytes": 15826944
+    },
+    {
+      "cycle": 11,
+      "sampledAt": "2026-10-17T07:04:41.5568571+00:00",
+      "workingSetBytes": 31309824,
+      "privateCommitBytes": 15826944
+    },
+    {
+      "cycle": 12,
+      "sampledAt": "2026-10-17T07:04:42.8591031+00:00",
+      "workingSetBytes": 31318016,
+      "privateCommitBytes": 15826944
+    },
+    {
+      "cycle": 13,
+      "sampledAt": "2026-10-17T07:04:44.1431542+00:00",
+      "workingSetBytes": 31330304,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 14,
+      "sampledAt": "2026-10-17T07:04:45.3816651+00:00",
+      "workingSetBytes": 31334400,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 15,
+      "sampledAt": "2026-10-17T07:04:46.6224169+00:00",
+      "workingSetBytes": 31342592,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 16,
+      "sampledAt": "2026-10-17T07:04:47.8689778+00:00",
+      "workingSetBytes": 31342592,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 17,
+      "sampledAt": "2026-10-17T07:04:49.0404108+00:00",
+      "workingSetBytes": 31342592,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 18,
+      "sampledAt": "2026-10-17T07:04:50.1911167+00:00",
+      "workingSetBytes": 31342592,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 19,
+      "sampledAt": "2026-10-17T07:04:51.3897549+00:00",
+      "workingSetBytes": 31342592,
+      "privateCommitBytes": 15835136
+    },
+    {
+      "cycle": 20,
+      "sampledAt": "2026-10-17T07:04:52.6336830+00:00",
+      "workingSetBytes": 31346688,
+      "privateCommitBytes": 15835136
+    }
+  ],
+  "memoryTrend": {
+    "privateCommitFirstFiveMedianBytes": 15765504,
+    "privateCommitLastFiveMedianBytes": 15835136,
+    "privateCommitMedianChangeBytes": 69632,
+    "privateCommitMedianChangePercent": 0.4416731618602235,
+    "privateCommitSlopeBytesPerCycle": 6393.455639097744,
+    "privateCommitMinimumBytes": 15699968,
+    "privateCommitMaximumBytes": 15835136,
+    "privateCommitIncreasingEveryCycle": false,
+    "workingSetFirstFiveMedianBytes": 31199232,
+    "workingSetLastFiveMedianBytes": 31342592,
+    "interpretation": "Descriptive measurements, not a pass/fail memory budget. Working set varies with Windows trimming and shared-page residency. Review private-commit medians and slope for sustained growth; process cleanup is asserted separately."
+  }
+}

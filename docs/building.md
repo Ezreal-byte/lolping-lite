@@ -6,7 +6,9 @@ NSIS 使用 Tauri 项目保存的固定版本镜像，校验值与 [NSIS 官方�
 
 ## 平台环境
 
-Windows：Visual Studio 2022 的 Desktop development with C++ 工作负载。NSIS 编译器由打包脚本自动下载并验证，不需要系统安装。安装器按当前用户安装，不要求管理员权限；覆盖升级和卸载会先通过 `--quit` 正常关闭同一用户的应用。
+Windows：Visual Studio 2022 或 2026 正式版的 Desktop development with C++ 工作负载，以及 PowerShell 7。NSIS 编译器由打包脚本自动下载并验证，不需要系统安装。安装器按当前用户安装，不要求管理员权限；覆盖升级和卸载会先通过 `--quit` 正常关闭同一用户的应用。
+
+打包脚本使用 Visual Studio Installer 的 `vswhere` 定位正式版 C++ 可再分发目录，按实际 PE 导入递归收集必需的 x64 CRT DLL，验证 Microsoft 签名并原样放到可执行文件旁边。不会从 System32、调试目录或随机网站复制 DLL，也不会静默安装全局运行库。产物记录运行库版本、SHA-256 和微软许可；构建机器工具链更新可能改变 DLL 版本，发布应使用已核验的同一轮 CI 产物。
 
 macOS：Apple Silicon、Xcode Command Line Tools。系统 `sips` / `iconutil` 生成图标，`codesign` 为 helper 和 app 执行 ad-hoc 签名，`hdiutil` 生成 DMG。没有开发者证书与公证时不要声称已签名分发或已公证。
 
@@ -31,6 +33,8 @@ node scripts/standalone-smoke.mjs --no-desktop
 npm run package
 npm run verify:package
 ```
+
+Windows 安装生命周期验收（PowerShell 7）使用 `./scripts/test-windows-installer.ps1 -Execute`。它先检查不存在已有安装和用户数据，再在仓库 `.test-data` 内执行静默安装、同版升级和卸载，验证实际加载应用目录内的 CRT、文件哈希、快捷方式、注册表及保留用户数据。发现已有用户安装时跳过，避免修改用户环境。CI 在干净 Windows runner 上执行同一检查。
 
 `ui/` 是自动生成的原生媒体目录，只有默认 9 个表情和信号素材，不含 HTML、JS、CSS。`.stage/` 是平台运行布局，`dist/` 是分发包、包验证报告、体积记录和 SHA-256 清单；这些生成文件不提交到 Git。
 

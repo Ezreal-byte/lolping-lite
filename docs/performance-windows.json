@@ -1,0 +1,1152 @@
+{
+  "product": "LOLPing Lite",
+  "version": "0.1.0",
+  "complete": true,
+  "date": "2026-10-17T07:05:01.655Z",
+  "hardware": {
+    "os": "Microsoft Windows 11 专业版",
+    "osVersion": "10.0.26200",
+    "cpu": "Intel(R) Core(TM) Ultra 5 125H",
+    "logicalProcessors": 18,
+    "memoryMiB": 32221,
+    "displays": [
+      {
+        "width": 2880,
+        "height": 1800,
+        "scalePercent": 150,
+        "primary": true
+      }
+    ]
+  },
+  "baseline": {
+    "product": "DBX lolPing Lite plugin",
+    "version": "0.1.1",
+    "renderer": "WebView2",
+    "archiveSha256": "7ac53217d8ada78abd34afcce7a6c4de6886fcbc0bbe3b99a7c0747e391848e5",
+    "executableSha256": "674d397ef7b685df5ba2a7ae7fd0cfd5b979b681f0b5a20730b771549a0c6965"
+  },
+  "candidate": {
+    "renderer": "Rust native",
+    "executableSha256": "4fc93c370c5eaa1af4c4396c51ab717c6e16e1dae62576840c32591bc6940ca6",
+    "productionTrayEnabled": true
+  },
+  "method": {
+    "repetitions": 3,
+    "sampleWindowMs": 6000,
+    "idleSettleMs": 22000,
+    "signalIntervalMs": 200,
+    "emoteIntervalMs": 1800,
+    "settings": {
+      "muted": true,
+      "volume": 0,
+      "keepLastPing": false,
+      "trigger": {
+        "vk": 117
+      },
+      "emoteTrigger": "off",
+      "clickPing": false,
+      "emoteClick": false,
+      "pingDurationS": 3.2,
+      "pingSizePx": 110,
+      "emoteSizePx": 150,
+      "wheelSizePx": 600
+    },
+    "animation": {
+      "name": "bee_mad.webp",
+      "sha256": "f3d72bdf4afb7984414da67fe3abb8f275b468166f19ccbf5cf9959b1fc742b4"
+    },
+    "scope": "Complete application-descendant tree, including helper, WebView2 descendants and native settings when open. The shared DBX host is excluded from the legacy baseline.",
+    "memory": "Working set sums resident pages across processes and can double-count shared pages. Private commit is virtual committed memory, not resident RAM. GPU memory is excluded.",
+    "cpu": "One-core-equivalent CPU percentage from process CPU-time deltas over the measured interval, not Task Manager normalized utilization. Exited children can make this an underestimate; the report records their count.",
+    "sampling": "Memory is the end-of-window sample, not a peak or upper-bound guarantee. The two products run sequentially in alternating order on the same desktop."
+  },
+  "limitations": [
+    "Old plugin settings-open and settings-closed scenarios are not measured: its React settings run inside the shared DBX host and cannot be isolated by launching the old sidecar.",
+    "The old WebView2 runtime is the runtime currently installed on this machine, not a pinned historical browser runtime.",
+    "Programmatic preview commands exercise the real renderers without synthesizing OS keyboard or mouse input; input-to-display latency and physical gesture feel are outside this benchmark.",
+    "Both candidates are muted to use a consistent visual workload; these results do not quantify audio playback memory.",
+    "Settings-window open/close samples use the normal native settings process. No private paths, command lines, usernames or machine identifiers are included."
+  ],
+  "runs": [
+    {
+      "kind": "webview",
+      "repetition": 1,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:05:34.2353842+00:00",
+          "elapsedSeconds": 6.9826067,
+          "workingSetBytes": 475181056,
+          "privateCommitBytes": 270688256,
+          "cpuOneCorePercent": 0,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23740416,
+              "privateCommitBytes": 5373952
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 137478144,
+              "privateCommitBytes": 46874624
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20332544,
+              "privateCommitBytes": 3526656
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 190648320,
+              "privateCommitBytes": 162009088
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42823680,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21880832,
+              "privateCommitBytes": 7979008
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 23826432,
+              "privateCommitBytes": 29548544
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 6356992,
+              "privateCommitBytes": 1097728
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8093696,
+              "privateCommitBytes": 1257472
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:05:43.8076889+00:00",
+          "elapsedSeconds": 7.1324354,
+          "workingSetBytes": 542887936,
+          "privateCommitBytes": 328167424,
+          "cpuOneCorePercent": 42.061369388638276,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23740416,
+              "privateCommitBytes": 5373952
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 137625600,
+              "privateCommitBytes": 46891008
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20332544,
+              "privateCommitBytes": 3526656
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 224595968,
+              "privateCommitBytes": 195645440
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42823680,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21880832,
+              "privateCommitBytes": 7979008
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 57438208,
+              "privateCommitBytes": 53374976
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 6356992,
+              "privateCommitBytes": 1097728
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8093696,
+              "privateCommitBytes": 1257472
+            }
+          ],
+          "previewCount": 47
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:05:57.2422329+00:00",
+          "elapsedSeconds": 6.8530694,
+          "workingSetBytes": 595070976,
+          "privateCommitBytes": 378339328,
+          "cpuOneCorePercent": 14.59200165111417,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 24743936,
+              "privateCommitBytes": 6389760
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 136740864,
+              "privateCommitBytes": 45961216
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20332544,
+              "privateCommitBytes": 3526656
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 272945152,
+              "privateCommitBytes": 244420608
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42823680,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21880832,
+              "privateCommitBytes": 7979008
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 61153280,
+              "privateCommitBytes": 54685696
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 6356992,
+              "privateCommitBytes": 1097728
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8093696,
+              "privateCommitBytes": 1257472
+            }
+          ],
+          "previewCount": 6
+        }
+      },
+      "skipped": [
+        "settingsOpen",
+        "settingsClosed"
+      ]
+    },
+    {
+      "kind": "native",
+      "repetition": 1,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:06:36.3116753+00:00",
+          "elapsedSeconds": 6.7352031,
+          "workingSetBytes": 47099904,
+          "privateCommitBytes": 18317312,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 33083392,
+              "privateCommitBytes": 16027648
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8085504,
+              "privateCommitBytes": 1241088
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:06:45.5684336+00:00",
+          "elapsedSeconds": 6.8293886,
+          "workingSetBytes": 49737728,
+          "privateCommitBytes": 20910080,
+          "cpuOneCorePercent": 43.92779757766311,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 35721216,
+              "privateCommitBytes": 18620416
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8085504,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 46
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:06:58.7405503+00:00",
+          "elapsedSeconds": 6.6379007,
+          "workingSetBytes": 51904512,
+          "privateCommitBytes": 24092672,
+          "cpuOneCorePercent": 15.065003910046439,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 37871616,
+              "privateCommitBytes": 21803008
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8085504,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 5
+        },
+        "settingsOpen": {
+          "sampledAt": "2026-10-17T07:07:12.7134804+00:00",
+          "elapsedSeconds": 6.5979641,
+          "workingSetBytes": 171978752,
+          "privateCommitBytes": 117911552,
+          "cpuOneCorePercent": 0,
+          "processCount": 4,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32485376,
+              "privateCommitBytes": 16003072
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8085504,
+              "privateCommitBytes": 1241088
+            },
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 125460480,
+              "privateCommitBytes": 99618816
+            }
+          ]
+        },
+        "settingsClosed": {
+          "sampledAt": "2026-10-17T07:07:43.0795776+00:00",
+          "elapsedSeconds": 6.6338582,
+          "workingSetBytes": 46489600,
+          "privateCommitBytes": 18198528,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32456704,
+              "privateCommitBytes": 15908864
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8085504,
+              "privateCommitBytes": 1241088
+            }
+          ]
+        }
+      },
+      "skipped": []
+    },
+    {
+      "kind": "native",
+      "repetition": 2,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:08:16.6919893+00:00",
+          "elapsedSeconds": 6.5954519,
+          "workingSetBytes": 46870528,
+          "privateCommitBytes": 18948096,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32849920,
+              "privateCommitBytes": 16646144
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1253376
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:08:25.5150908+00:00",
+          "elapsedSeconds": 6.5552084,
+          "workingSetBytes": 49471488,
+          "privateCommitBytes": 21544960,
+          "cpuOneCorePercent": 30.51009026654286,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 35450880,
+              "privateCommitBytes": 19243008
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1253376
+            }
+          ],
+          "previewCount": 43
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:08:38.5727896+00:00",
+          "elapsedSeconds": 6.6013415,
+          "workingSetBytes": 51429376,
+          "privateCommitBytes": 23539712,
+          "cpuOneCorePercent": 15.148436117113468,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 37408768,
+              "privateCommitBytes": 21237760
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1253376
+            }
+          ],
+          "previewCount": 5
+        },
+        "settingsOpen": {
+          "sampledAt": "2026-10-17T07:08:52.7249472+00:00",
+          "elapsedSeconds": 6.900106,
+          "workingSetBytes": 176713728,
+          "privateCommitBytes": 118341632,
+          "cpuOneCorePercent": 14.492530984306617,
+          "processCount": 4,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32579584,
+              "privateCommitBytes": 16236544
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1253376
+            },
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 130113536,
+              "privateCommitBytes": 99803136
+            }
+          ]
+        },
+        "settingsClosed": {
+          "sampledAt": "2026-10-17T07:09:23.4042616+00:00",
+          "elapsedSeconds": 7.0408728,
+          "workingSetBytes": 46600192,
+          "privateCommitBytes": 18448384,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32579584,
+              "privateCommitBytes": 16146432
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5931008,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1253376
+            }
+          ]
+        }
+      },
+      "skipped": []
+    },
+    {
+      "kind": "webview",
+      "repetition": 2,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:09:57.9072002+00:00",
+          "elapsedSeconds": 7.0320791,
+          "workingSetBytes": 472461312,
+          "privateCommitBytes": 275189760,
+          "cpuOneCorePercent": 0,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23621632,
+              "privateCommitBytes": 5369856
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 135307264,
+              "privateCommitBytes": 46952448
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20357120,
+              "privateCommitBytes": 3571712
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 190603264,
+              "privateCommitBytes": 161935360
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42778624,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21852160,
+              "privateCommitBytes": 7954432
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 23928832,
+              "privateCommitBytes": 34091008
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5935104,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8077312,
+              "privateCommitBytes": 1236992
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:10:07.3102804+00:00",
+          "elapsedSeconds": 6.7662921,
+          "workingSetBytes": 540659712,
+          "privateCommitBytes": 330362880,
+          "cpuOneCorePercent": 44.33742965367989,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23621632,
+              "privateCommitBytes": 5369856
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 135409664,
+              "privateCommitBytes": 47030272
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20357120,
+              "privateCommitBytes": 3571712
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 224108544,
+              "privateCommitBytes": 195133440
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42778624,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21852160,
+              "privateCommitBytes": 7954432
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 58519552,
+              "privateCommitBytes": 55988224
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5935104,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8077312,
+              "privateCommitBytes": 1236992
+            }
+          ],
+          "previewCount": 46
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:10:20.6626186+00:00",
+          "elapsedSeconds": 6.7952746,
+          "workingSetBytes": 621625344,
+          "privateCommitBytes": 409731072,
+          "cpuOneCorePercent": 14.716108750042272,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 24629248,
+              "privateCommitBytes": 6385664
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 135921664,
+              "privateCommitBytes": 47484928
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20357120,
+              "privateCommitBytes": 3571712
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 298631168,
+              "privateCommitBytes": 270151680
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42778624,
+              "privateCommitBytes": 13021184
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21852160,
+              "privateCommitBytes": 7954432
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 63442944,
+              "privateCommitBytes": 58867712
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5935104,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8077312,
+              "privateCommitBytes": 1236992
+            }
+          ],
+          "previewCount": 6
+        }
+      },
+      "skipped": [
+        "settingsOpen",
+        "settingsClosed"
+      ]
+    },
+    {
+      "kind": "webview",
+      "repetition": 3,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:11:00.3379274+00:00",
+          "elapsedSeconds": 6.6772692,
+          "workingSetBytes": 471175168,
+          "privateCommitBytes": 268156928,
+          "cpuOneCorePercent": 0,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23654400,
+              "privateCommitBytes": 6311936
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 136957952,
+              "privateCommitBytes": 46383104
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20348928,
+              "privateCommitBytes": 3522560
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 190697472,
+              "privateCommitBytes": 162045952
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42815488,
+              "privateCommitBytes": 13045760
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21868544,
+              "privateCommitBytes": 7974912
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20795392,
+              "privateCommitBytes": 26583040
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:11:09.5170850+00:00",
+          "elapsedSeconds": 6.8035988,
+          "workingSetBytes": 541442048,
+          "privateCommitBytes": 328163328,
+          "cpuOneCorePercent": 44.094310793281934,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 23654400,
+              "privateCommitBytes": 6311936
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 137158656,
+              "privateCommitBytes": 46456832
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20348928,
+              "privateCommitBytes": 3522560
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 224071680,
+              "privateCommitBytes": 195108864
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42815488,
+              "privateCommitBytes": 13045760
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21868544,
+              "privateCommitBytes": 7974912
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 57487360,
+              "privateCommitBytes": 53452800
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 45
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:11:22.8972620+00:00",
+          "elapsedSeconds": 6.881939,
+          "workingSetBytes": 619606016,
+          "privateCommitBytes": 404135936,
+          "cpuOneCorePercent": 14.53078848853499,
+          "processCount": 9,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-backend",
+              "workingSetBytes": 24657920,
+              "privateCommitBytes": 7323648
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 136364032,
+              "privateCommitBytes": 45608960
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 20348928,
+              "privateCommitBytes": 3522560
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 299245568,
+              "privateCommitBytes": 270753792
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 42815488,
+              "privateCommitBytes": 13045760
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 21868544,
+              "privateCommitBytes": 7974912
+            },
+            {
+              "name": "msedgewebview2",
+              "workingSetBytes": 60268544,
+              "privateCommitBytes": 53616640
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5947392,
+              "privateCommitBytes": 1048576
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 6
+        }
+      },
+      "skipped": [
+        "settingsOpen",
+        "settingsClosed"
+      ]
+    },
+    {
+      "kind": "native",
+      "repetition": 3,
+      "samples": {
+        "idle": {
+          "sampledAt": "2026-10-17T07:12:01.9832721+00:00",
+          "elapsedSeconds": 6.8148994,
+          "workingSetBytes": 46694400,
+          "privateCommitBytes": 18751488,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32686080,
+              "privateCommitBytes": 16453632
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5918720,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ]
+        },
+        "signals": {
+          "sampledAt": "2026-10-17T07:12:10.9950368+00:00",
+          "elapsedSeconds": 6.6434763,
+          "workingSetBytes": 49295360,
+          "privateCommitBytes": 21360640,
+          "cpuOneCorePercent": 30.104720927505983,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 35287040,
+              "privateCommitBytes": 19062784
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5918720,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 44
+        },
+        "animatedEmote": {
+          "sampledAt": "2026-10-17T07:12:23.8065296+00:00",
+          "elapsedSeconds": 6.6098347,
+          "workingSetBytes": 52076544,
+          "privateCommitBytes": 24551424,
+          "cpuOneCorePercent": 15.128971379571714,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 38068224,
+              "privateCommitBytes": 22253568
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5918720,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ],
+          "previewCount": 5
+        },
+        "settingsOpen": {
+          "sampledAt": "2026-10-17T07:12:37.6432807+00:00",
+          "elapsedSeconds": 6.5909733,
+          "workingSetBytes": 172888064,
+          "privateCommitBytes": 118648832,
+          "cpuOneCorePercent": 0,
+          "processCount": 4,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32546816,
+              "privateCommitBytes": 16232448
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5918720,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            },
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 126332928,
+              "privateCommitBytes": 100118528
+            }
+          ]
+        },
+        "settingsClosed": {
+          "sampledAt": "2026-10-17T07:13:07.9115723+00:00",
+          "elapsedSeconds": 6.6782681,
+          "workingSetBytes": 46555136,
+          "privateCommitBytes": 18440192,
+          "cpuOneCorePercent": 0,
+          "processCount": 3,
+          "exitedDuringWindow": 0,
+          "processes": [
+            {
+              "name": "lolping-lite",
+              "workingSetBytes": 32546816,
+              "privateCommitBytes": 16142336
+            },
+            {
+              "name": "hook-helper",
+              "workingSetBytes": 5918720,
+              "privateCommitBytes": 1056768
+            },
+            {
+              "name": "conhost",
+              "workingSetBytes": 8089600,
+              "privateCommitBytes": 1241088
+            }
+          ]
+        }
+      },
+      "skipped": []
+    }
+  ],
+  "summaries": {
+    "webview": {
+      "idle": {
+        "samples": 3,
+        "workingSetBytes": 472461312,
+        "privateCommitBytes": 270688256,
+        "cpuOneCorePercent": 0,
+        "processCounts": [
+          9,
+          9,
+          9
+        ]
+      },
+      "signals": {
+        "samples": 3,
+        "workingSetBytes": 541442048,
+        "privateCommitBytes": 328167424,
+        "cpuOneCorePercent": 44.094310793281934,
+        "processCounts": [
+          9,
+          9,
+          9
+        ]
+      },
+      "animatedEmote": {
+        "samples": 3,
+        "workingSetBytes": 619606016,
+        "privateCommitBytes": 404135936,
+        "cpuOneCorePercent": 14.59200165111417,
+        "processCounts": [
+          9,
+          9,
+          9
+        ]
+      }
+    },
+    "native": {
+      "idle": {
+        "samples": 3,
+        "workingSetBytes": 46870528,
+        "privateCommitBytes": 18751488,
+        "cpuOneCorePercent": 0,
+        "processCounts": [
+          3,
+          3,
+          3
+        ]
+      },
+      "signals": {
+        "samples": 3,
+        "workingSetBytes": 49471488,
+        "privateCommitBytes": 21360640,
+        "cpuOneCorePercent": 30.51009026654286,
+        "processCounts": [
+          3,
+          3,
+          3
+        ]
+      },
+      "animatedEmote": {
+        "samples": 3,
+        "workingSetBytes": 51904512,
+        "privateCommitBytes": 24092672,
+        "cpuOneCorePercent": 15.128971379571714,
+        "processCounts": [
+          3,
+          3,
+          3
+        ]
+      },
+      "settingsOpen": {
+        "samples": 3,
+        "workingSetBytes": 172888064,
+        "privateCommitBytes": 118341632,
+        "cpuOneCorePercent": 0,
+        "processCounts": [
+          4,
+          4,
+          4
+        ]
+      },
+      "settingsClosed": {
+        "samples": 3,
+        "workingSetBytes": 46555136,
+        "privateCommitBytes": 18440192,
+        "cpuOneCorePercent": 0,
+        "processCounts": [
+          3,
+          3,
+          3
+        ]
+      }
+    }
+  },
+  "comparisons": {
+    "idle": {
+      "workingSetReductionPercent": 90.07949925008886,
+      "privateCommitReductionPercent": 93.07266289380505
+    },
+    "signals": {
+      "workingSetReductionPercent": 90.86301328411051,
+      "privateCommitReductionPercent": 93.49093223829554
+    },
+    "animatedEmote": {
+      "workingSetReductionPercent": 91.62298127202173,
+      "privateCommitReductionPercent": 94.03847323292725
+    }
+  }
+}

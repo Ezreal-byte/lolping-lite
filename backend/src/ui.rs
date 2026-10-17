@@ -241,24 +241,40 @@ impl App {
         self.error.clear();
     }
     fn apply_settings(&mut self, mut value: Value) {
+        if let Some(patch) = &self.failed_save {
+            merge(&mut value, patch);
+        }
         if let Some(pending) = self.saving.and_then(|id| self.pending.get(&id)) {
             if let Some(patch) = pending.params.as_object() {
                 merge(&mut value, patch);
             }
         }
         merge(&mut value, &self.dirty);
-        if let Some(patch) = &self.failed_save {
-            merge(&mut value, patch);
-        }
         self.state["settings"] = value;
     }
     fn flush(&mut self) {
         if self.saving.is_none() && !self.dirty.is_empty() {
+            // A failed acknowledgement can arrive after the next edit was queued.
+            // Retry those fields with the next write, keeping the latest edits.
+            if let Some(failed) = self.failed_save.take() {
+                for (key, value) in failed {
+                    self.dirty.entry(key).or_insert(value);
+                }
+                self.error.clear();
+            }
             let patch = std::mem::take(&mut self.dirty);
             let id = self.request("settings", Value::Object(patch));
             self.saving = Some(id);
             self.save_at = None;
         }
+    }
+    fn prepare_close(&mut self) -> bool {
+        self.end_capture();
+        self.flush();
+        self.pending.is_empty()
+            && self.dirty.is_empty()
+            && self.failed_save.is_none()
+            && !self.file_dialog
     }
     fn end_capture(&mut self) {
         if self.capture.take().is_some() {
@@ -302,7 +318,7 @@ impl App {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                             }
-                            "quit" => self.close_allowed = true,
+                            "quit" => self.closing = true,
                             "lolping/status" => self.state["status"] = v["params"].clone(),
                             "lolping/settings" => {
                                 self.apply_settings(v["params"]["settings"].clone())
@@ -1118,13 +1134,7 @@ impl eframe::App for App {
             self.closing = true;
         }
         if self.closing {
-            self.end_capture();
-            self.flush();
-            if self.pending.is_empty()
-                && self.dirty.is_empty()
-                && self.failed_save.is_none()
-                && !self.file_dialog
-            {
+            if self.prepare_close() {
                 self.close_allowed = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 return;
@@ -1407,6 +1417,104 @@ mod tests {
             output.recv().unwrap()["params"],
             json!({"volume":15,"muted":true})
         );
+    }
+    #[test]
+    fn failed_reply_preserves_a_newer_edit_already_queued() {
+        let (mut app, output) = test_app();
+        app.patch("volume", json!(15), false);
+        app.flush();
+        let first = output.recv().unwrap();
+        app.patch("volume", json!(80), true);
+        app.local
+            .send(Incoming::Message(
+                json!({"id":first["id"],"error":"temporary write failure"}),
+            ))
+            .unwrap();
+        app.local
+            .send(Incoming::Message(json!({
+                "event":"lolping/settings",
+                "params":{"settings":crate::settings::defaults()}
+            })))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        assert_eq!(app.state["settings"]["volume"], 80);
+        app.flush();
+        let retry = output.recv().unwrap();
+        assert_eq!(retry["params"], json!({"volume":80}));
+        assert!(app.failed_save.is_none());
+        let mut acknowledged = crate::settings::defaults();
+        acknowledged["volume"] = json!(80);
+        app.local
+            .send(Incoming::Message(
+                json!({"id":retry["id"],"result":acknowledged}),
+            ))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        assert_eq!(app.state["settings"]["volume"], 80);
+        assert!(app.error.is_empty());
+        assert!(app.prepare_close());
+    }
+    #[test]
+    fn failed_reply_retains_other_fields_with_an_edit_already_queued() {
+        let (mut app, output) = test_app();
+        app.patch("volume", json!(15), false);
+        app.flush();
+        let first = output.recv().unwrap();
+        app.patch("muted", json!(true), true);
+        app.local
+            .send(Incoming::Message(
+                json!({"id":first["id"],"error":"temporary write failure"}),
+            ))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        app.flush();
+        assert_eq!(
+            output.recv().unwrap()["params"],
+            json!({"volume":15,"muted":true})
+        );
+        assert!(app.failed_save.is_none());
+    }
+    #[test]
+    fn parent_quit_flushes_debounced_edits_and_releases_capture_before_close() {
+        let (mut app, output) = test_app();
+        app.begin_capture("trigger");
+        let suspend = output.recv().unwrap();
+        app.local
+            .send(Incoming::Message(
+                json!({"id":suspend["id"],"result":{"ok":true}}),
+            ))
+            .unwrap();
+        app.patch("volume", json!(80), true);
+        app.local
+            .send(Incoming::Message(json!({"event":"quit","params":{}})))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        assert!(app.closing);
+        assert!(!app.close_allowed);
+        assert!(!app.prepare_close());
+        assert!(app.capture.is_none());
+        let resume = output.recv().unwrap();
+        let save = output.recv().unwrap();
+        assert_eq!(resume["method"], "suspend");
+        assert_eq!(resume["params"], json!({"on":false}));
+        assert_eq!(save["method"], "settings");
+        assert_eq!(save["params"], json!({"volume":80}));
+        app.local
+            .send(Incoming::Message(
+                json!({"id":resume["id"],"result":{"ok":true}}),
+            ))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        assert!(!app.prepare_close());
+        let mut acknowledged = crate::settings::defaults();
+        acknowledged["volume"] = json!(80);
+        app.local
+            .send(Incoming::Message(
+                json!({"id":save["id"],"result":acknowledged}),
+            ))
+            .unwrap();
+        app.messages(&egui::Context::default());
+        assert!(app.prepare_close());
     }
     fn test_app() -> (App, mpsc::Receiver<Value>) {
         let (tx, output) = mpsc::channel();
