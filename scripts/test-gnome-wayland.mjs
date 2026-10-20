@@ -217,6 +217,21 @@ try {
   await assertRunning('After Escape cancellation');
   checks.push('Escape cancels the Wayland wheel and releases its compositor input grab');
 
+  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
+  const watchdogStarted = Date.now();
+  await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0, 20000);
+  assert.ok(Date.now() - watchdogStarted >= 13000, 'The held wheel must reach the 15-second watchdog, not close from an accidental key release');
+  await assertRunning('After held-wheel watchdog cancellation');
+  releaseKeys();
+  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
+  privateInput('key', 'Escape');
+  releaseKeys();
+  await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
+  await assertRunning('After reopening following watchdog cancellation');
+  checks.push('Holding Q reaches the 15-second safety cancellation without stopping the application; the next wheel still opens and cancels normally');
+
   inputClient = spawn('python3', [join(repository, 'scripts/test-gnome-input-client.py')], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, WAYLAND_DISPLAY: waylandDisplay, GDK_BACKEND: 'wayland' },

@@ -302,8 +302,9 @@ class Bridge {
         });
         this._timeoutSource = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 15, () => {
             this._timeoutSource = 0;
+            // A held or interrupted gesture expires without disabling the
+            // bridge; the next shortcut must still be able to open a wheel.
             this._cancelAndClear();
-            this._emit({type: 'error', error: 'The wheel was cancelled after 15 seconds without finishing'});
             return GLib.SOURCE_REMOVE;
         });
         this._emit(event);
