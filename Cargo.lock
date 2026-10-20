@@ -2447,6 +2447,7 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "ogg",
  "opus",
+ "png",
  "rfd",
  "rodio",
  "serde",

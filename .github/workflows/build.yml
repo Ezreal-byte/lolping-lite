@@ -179,6 +179,7 @@ jobs:
             .test-data/gnome-wayland-*/application.log
             .test-data/gnome-wayland-*/input-client.log
             .test-data/gnome-wayland-*/private-seat.log
+            .test-data/gnome-wayland-*/system-packages.txt
             .test-data/gnome-wayland-*/egl-loader.log
             .test-data/gnome-wayland-*/input-events.json
             .test-data/gnome-wayland-*/keyboard-samples.json

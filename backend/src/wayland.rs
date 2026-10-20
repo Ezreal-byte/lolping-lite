@@ -113,9 +113,10 @@ impl FrameDirectory {
             files: HashMap::new(),
         })
     }
-    fn write(&mut self, monitor: u32, pixels: &Pixmap) -> Result<String, String> {
-        let len = wayland_model::frame_bytes(pixels.width(), pixels.height())?;
-        let name = format!("frame-{monitor}.rgba");
+    fn write(&mut self, monitor: u32, pixels: &Pixmap) -> Result<(String, usize), String> {
+        let encoded = wayland_model::encode_frame(pixels)?;
+        let len = encoded.len();
+        let name = format!("frame-{monitor}.png");
         if let std::collections::hash_map::Entry::Vacant(entry) = self.files.entry(monitor) {
             let file = fs::OpenOptions::new()
                 .write(true)
@@ -128,13 +129,13 @@ impl FrameDirectory {
         let file = self.files.get_mut(&monitor).unwrap();
         file.seek(SeekFrom::Start(0))
             .and_then(|_| file.set_len(len as u64))
-            .and_then(|_| file.write_all(pixels.data()))
+            .and_then(|_| file.write_all(&encoded))
             .map_err(|e| e.to_string())?;
-        Ok(name)
+        Ok((name, len))
     }
     fn release(&mut self, monitor: u32) {
         if self.files.remove(&monitor).is_some() {
-            let _ = fs::remove_file(self.path.join(format!("frame-{monitor}.rgba")));
+            let _ = fs::remove_file(self.path.join(format!("frame-{monitor}.png")));
         }
     }
 }
@@ -238,7 +239,7 @@ impl Bridge {
             return Err("GNOME handshake too large".into());
         }
         let hello: Value = serde_json::from_str(&message).map_err(|e| e.to_string())?;
-        if hello["protocol"] != 1 {
+        if hello["protocol"] != 2 {
             return Err("Update the LOLPing Lite GNOME extension: incompatible protocol".into());
         }
         let monitors = wayland_model::monitors(&hello["monitors"])?;
@@ -703,11 +704,11 @@ impl Engine {
             }
             let pixels = overlay.pixels.as_mut().unwrap();
             overlay.scene.draw(pixels, bounds, monitor.scale, now);
-            let file = bridge.frames.write(monitor.id, pixels)?;
-            let message = json!({"monitor":monitor.id,"x":monitor.x as f64+bounds.x as f64/monitor.scale,"y":monitor.y as f64+bounds.y as f64/monitor.scale,"width":bounds.w,"height":bounds.h,"scale":monitor.scale,"file":file});
-            // Shell reads and uploads the pixel bytes and replies; it never waits for
-            // Rust. One frame in flight and a bounded timeout prevent queues or
-            // reuse of the private file before the compositor has copied its pixels.
+            let (file, encoded_bytes) = bridge.frames.write(monitor.id, pixels)?;
+            let message = json!({"monitor":monitor.id,"x":monitor.x as f64+bounds.x as f64/monitor.scale,"y":monitor.y as f64+bounds.y as f64/monitor.scale,"width":bounds.w,"height":bounds.h,"scale":monitor.scale,"file":file,"encodedBytes":encoded_bytes});
+            // Shell loads the PNG into a native Cairo surface before replying.
+            // One frame in flight and a bounded timeout prevent reuse before
+            // that read finishes; large pixel buffers never enter GJS's heap.
             bridge.call("Present", &(message.to_string(),).to_variant())?;
             self.presented_frames += 1;
             overlay.visible = true;

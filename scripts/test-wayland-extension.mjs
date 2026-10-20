@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import {
-    BUS_NAME, OBJECT_PATH, INTERFACE, MAX_FRAME_BYTES, SHORTCUTS,
+    BUS_NAME, OBJECT_PATH, INTERFACE, PROTOCOL_VERSION, MAX_FRAME_BYTES, MAX_ENCODED_BYTES, SHORTCUTS,
     parseMessage, validateDirectory, validatePrivateFile, validateFrame,
-    validateConfiguration, validateRuntime, readFramePixels, BridgeSession, Gesture, DesktopSession,
+    validateConfiguration, validateRuntime, validateFrameFile, readPngHeader, BridgeSession, Gesture, DesktopSession,
 } from '../native/gnome-extension/lolping-lite@ezreal-byte.github.io/protocol.js';
 
 const runtime = '/run/user/1000';
@@ -13,7 +13,7 @@ const monitors = [
     {id: 0, x: 0, y: 0, width: 1920, height: 1080, scale: 1},
     {id: 1, x: -1280, y: -100, width: 1280, height: 720, scale: 2},
 ];
-const frame = {monitor: 0, x: 100, y: 100, width: 300, height: 300, scale: 1, file: 'frame-0.rgba'};
+const frame = {monitor: 0, x: 100, y: 100, width: 300, height: 300, scale: 1, file: 'frame-0.png', encodedBytes: 1000};
 const privateFile = {type: 'regular', symlink: false, uid: 1000, mode: 0o100600};
 const config = {enabled: true, suspended: false, emotesEnabled: true};
 
@@ -21,6 +21,7 @@ test('packaged interface and GNOME version are explicit', () => {
     assert.equal(BUS_NAME, 'io.github.EzrealByte.LOLPingLite.Wayland');
     assert.equal(OBJECT_PATH, '/io/github/EzrealByte/LOLPingLite/Wayland');
     assert.equal(INTERFACE, `${BUS_NAME}1`);
+    assert.equal(PROTOCOL_VERSION, 2);
     assert.deepEqual(Object.keys(SHORTCUTS), ['ping', 'emote', 'pause']);
     const metadata = JSON.parse(fs.readFileSync(new URL('../native/gnome-extension/lolping-lite@ezreal-byte.github.io/metadata.json', import.meta.url), 'utf8'));
     assert.deepEqual(metadata['shell-version'], ['46']);
@@ -76,7 +77,7 @@ test('runtime validation rejects symlinks in ancestors as well as the final dire
 
 test('valid cropped frames support negative monitor origins and mixed scale', () => {
     assert.equal(validateFrame(frame, monitors).bytes, 360000);
-    const second = {monitor: 1, x: -1270, y: -90, width: 600, height: 600, scale: 2, file: 'frame-1.rgba'};
+    const second = {...frame, monitor: 1, x: -1270, y: -90, width: 600, height: 600, scale: 2, file: 'frame-1.png'};
     assert.equal(validateFrame(second, monitors).bytes, 1440000);
     assert.equal(validateFrame({...frame, x: -0.5}, monitors).x, -0.5, 'outward pixel rounding is allowed');
 });
@@ -86,8 +87,10 @@ test('invalid sizes, scale, coordinates, monitors and traversal are rejected', (
         {width: 0}, {height: -1}, {width: 1.5}, {height: NaN}, {width: Infinity},
         {width: 4097}, {monitor: 99}, {monitor: '0'}, {scale: 2}, {scale: 0},
         {scale: Infinity}, {x: NaN}, {x: -2}, {y: 1000}, {x: 1900},
-        {file: '../frame-0.rgba'}, {file: '/tmp/frame-0.rgba'}, {file: 'frame-1.rgba'},
-        {file: 'frame-0.rgba\0'},
+        {file: '../frame-0.png'}, {file: '/tmp/frame-0.png'}, {file: 'frame-1.png'},
+        {file: 'frame-0.png\0'}, {file: 'frame-0.rgba'}, {encodedBytes: undefined},
+        {encodedBytes: 32}, {encodedBytes: 1.5}, {encodedBytes: Infinity},
+        {encodedBytes: MAX_ENCODED_BYTES + 1},
     ])
         assert.throws(() => validateFrame({...frame, ...patch}, monitors), JSON.stringify(patch));
     assert.throws(() => validateFrame({...frame, width: 4096, height: 4096},
@@ -103,23 +106,56 @@ test('configuration uses booleans and ignores unrelated fields', () => {
     }
 });
 
-test('frame reads require exact typed pixel bytes and expose file errors without retaining mappings', () => {
-    const pixels = new Uint8Array([0, 0, 0, 0, 64, 32, 16, 128]);
-    const read = path => {
-        assert.equal(path, `${directory}/frame-0.rgba`);
-        return [true, pixels];
+test('encoded files require unchanged byte length and permissions before and after decoding', () => {
+    const info = {...privateFile, size: frame.encodedBytes};
+    assert.doesNotThrow(() => validateFrameFile(info, 1000, frame));
+    for (const patch of [{size: 999}, {size: 1001}, {size: undefined}, {symlink: true}, {mode: 0o644}, {uid: 1001}])
+        assert.throws(() => validateFrameFile({...info, ...patch}, 1000, frame));
+    assert.equal(validateFrame({...frame, encodedBytes: 33}, monitors).encodedBytes, 33);
+    assert.equal(validateFrame({...frame, encodedBytes: MAX_ENCODED_BYTES}, monitors).encodedBytes, MAX_ENCODED_BYTES);
+});
+
+function pngHeader() {
+    // PNG signature followed by a 300 x 300, 8-bit RGBA IHDR. Cairo validates
+    // CRCs and image data; this bounded prefix check precedes native allocation.
+    return Uint8Array.from(Buffer.from('89504e470d0a1a0a0000000d494844520000012c0000012c0806000000' + '00000000', 'hex'));
+}
+
+test('only 33 PNG header bytes enter JavaScript, and read errors or truncation are explicit', () => {
+    const header = pngHeader();
+    const read = (path, count) => {
+        assert.equal(path, `${directory}/frame-0.png`);
+        assert.equal(count, 33, 'never read full frame pixel arrays into GJS');
+        return header;
     };
-    assert.equal(readFramePixels(`${directory}/frame-0.rgba`, 8, read), pixels);
-    for (const result of [null, [], [false, pixels], [true, null], [true, 'pixels'],
-        [true, [...pixels]], [true, new Uint32Array(2)]])
-        assert.throws(() => readFramePixels('frame', 8, () => result), /Cannot read/);
-    for (const size of [0, 4, 12])
-        assert.throws(() => readFramePixels('frame', 8, () => [true, new Uint8Array(size)]), /changed while being read/);
-    assert.throws(() => readFramePixels('frame', 8, () => {
+    assert.equal(readPngHeader(`${directory}/frame-0.png`, frame, read), header);
+    for (const result of [null, [], 'pixels', [...header], new Uint32Array(33),
+        new Uint8Array(0), new Uint8Array(32), new Uint8Array(34)])
+        assert.throws(() => readPngHeader('frame', frame, () => result), /truncated or invalid/);
+    assert.throws(() => readPngHeader('frame', frame, () => {
         throw new Error('Permission denied');
-    }), /Cannot read the native overlay frame: Permission denied/);
-    for (const size of [0, -1, 1.5, NaN, Infinity, MAX_FRAME_BYTES + 1])
-        assert.throws(() => readFramePixels('frame', size, () => assert.fail('invalid size must not read a file')), /Invalid native/);
+    }), /Cannot read the native overlay PNG header: Permission denied/);
+    const subarray = new Uint8Array(40);
+    subarray.set(header, 3);
+    assert.equal(readPngHeader('frame', frame, () => subarray.subarray(3, 36)).length, 33);
+});
+
+test('PNG signature, IHDR, dimensions and encoding are checked before native decoding', () => {
+    for (const index of [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 15]) {
+        const header = pngHeader();
+        header[index] ^= 1;
+        assert.throws(() => readPngHeader('frame', frame, () => header), /PNG IHDR/);
+    }
+    for (const [offset, value] of [[16, 0], [16, 301], [16, 0xffffffff], [20, 0], [20, 299], [20, 100000]]) {
+        const header = pngHeader();
+        new DataView(header.buffer).setUint32(offset, value);
+        assert.throws(() => readPngHeader('frame', frame, () => header), /dimensions/);
+    }
+    for (const [index, value] of [[24, 16], [25, 2], [25, 3], [26, 1], [27, 1], [28, 1]]) {
+        const header = pngHeader();
+        header[index] = value;
+        assert.throws(() => readPngHeader('frame', frame, () => header), /8-bit non-interlaced RGBA/);
+    }
 });
 
 test('unique session owner is required for every operation and cannot be replaced', () => {

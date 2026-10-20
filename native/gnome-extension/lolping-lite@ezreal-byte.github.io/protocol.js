@@ -3,7 +3,10 @@
 export const BUS_NAME = 'io.github.EzrealByte.LOLPingLite.Wayland';
 export const OBJECT_PATH = '/io/github/EzrealByte/LOLPingLite/Wayland';
 export const INTERFACE = 'io.github.EzrealByte.LOLPingLite.Wayland1';
+export const PROTOCOL_VERSION = 2;
 export const MAX_FRAME_BYTES = 32 * 1024 * 1024;
+export const MAX_ENCODED_BYTES = MAX_FRAME_BYTES + 65536;
+export const PNG_HEADER_BYTES = 33;
 export const SHORTCUTS = Object.freeze({
     ping: '<Super><Alt>q',
     emote: '<Super><Alt>e',
@@ -72,25 +75,42 @@ export function validateFrame(value, monitors) {
         value.x + value.width / value.scale > monitor.x + monitor.width + 1 ||
         value.y + value.height / value.scale > monitor.y + monitor.height + 1)
         throw new Error('Frame is outside its monitor');
-    if (value.file !== `frame-${value.monitor}.rgba`)
+    if (value.file !== `frame-${value.monitor}.png`)
         throw new Error('Unexpected frame filename');
+    if (!Number.isInteger(value.encodedBytes) || value.encodedBytes < PNG_HEADER_BYTES ||
+        value.encodedBytes > MAX_ENCODED_BYTES)
+        throw new Error('Invalid encoded frame byte length');
     return {...value, bytes};
 }
 
-export function readFramePixels(path, expectedBytes, readContents) {
-    if (!Number.isInteger(expectedBytes) || expectedBytes < 4 || expectedBytes > MAX_FRAME_BYTES)
-        throw new Error('Invalid native overlay byte length');
-    let result;
+export function validateFrameFile(info, uid, frame) {
+    validatePrivateFile(info, uid);
+    if (info.size !== frame.encodedBytes)
+        throw new Error('Frame file length changed or does not match its encoded byte length');
+}
+
+export function readPngHeader(path, frame, readBytes) {
+    let header;
     try {
-        result = readContents(path);
+        header = readBytes(path, PNG_HEADER_BYTES);
     } catch (error) {
-        throw new Error(`Cannot read the native overlay frame: ${error.message ?? error}`);
+        throw new Error(`Cannot read the native overlay PNG header: ${error.message ?? error}`);
     }
-    if (!Array.isArray(result) || result[0] !== true || !(result[1] instanceof Uint8Array))
-        throw new Error('Cannot read the native overlay frame as pixel bytes');
-    if (result[1].byteLength !== expectedBytes)
-        throw new Error('Frame file changed while being read');
-    return result[1];
+    if (!(header instanceof Uint8Array) || header.byteLength !== PNG_HEADER_BYTES)
+        throw new Error('The native overlay PNG header is truncated or invalid');
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+    if (signature.some((value, index) => header[index] !== value) ||
+        view.getUint32(8) !== 13 || view.getUint32(12) !== 0x49484452)
+        throw new Error('The native overlay must begin with a PNG IHDR header');
+    if (view.getUint32(16) !== frame.width || view.getUint32(20) !== frame.height)
+        throw new Error('PNG dimensions do not match the bounded frame');
+    // Restrict native decoding to our encoder's 8-bit non-interlaced RGBA
+    // output, after checking the dimensions and before allocating image data.
+    if (header[24] !== 8 || header[25] !== 6 ||
+        header[26] !== 0 || header[27] !== 0 || header[28] !== 0)
+        throw new Error('The native overlay must be an 8-bit non-interlaced RGBA PNG');
+    return header;
 }
 
 export function validateConfiguration(value) {

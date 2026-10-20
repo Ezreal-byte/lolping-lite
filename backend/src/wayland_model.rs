@@ -1,4 +1,4 @@
-//! The Shell protocol uses logical desktop coordinates and premultiplied RGBA.
+//! The Shell protocol uses logical coordinates and lossless PNG frame files.
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
@@ -6,6 +6,34 @@ use std::collections::HashSet;
 #[cfg(target_os = "linux")]
 pub const EXTENSION_ID: &str = "lolping-lite@ezreal-byte.github.io";
 pub const MAX_FRAME_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_ENCODED_BYTES: usize = MAX_FRAME_BYTES + 65536;
+
+pub fn encode_frame(pixels: &tiny_skia::Pixmap) -> Result<Vec<u8>, String> {
+    frame_bytes(pixels.width(), pixels.height())?;
+    // tiny-skia converts premultiplied pixels back to PNG RGBA. Shell's native
+    // Cairo decoder premultiplies again without allocating a JS pixel array.
+    // Balanced compression costs more than a whole frame on a 600px wheel.
+    // Fast changes compression effort only, retaining the same lossless RGBA.
+    let rgba = pixels.clone().take_demultiplied();
+    let mut encoded = Vec::new();
+    let mut encoder = png::Encoder::new(&mut encoded, pixels.width(), pixels.height());
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_compression(png::Compression::Fast);
+    let mut writer = encoder
+        .write_header()
+        .map_err(|e| format!("Cannot encode Wayland frame: {e}"))?;
+    writer
+        .write_image_data(&rgba)
+        .map_err(|e| format!("Cannot encode Wayland frame: {e}"))?;
+    writer
+        .finish()
+        .map_err(|e| format!("Cannot encode Wayland frame: {e}"))?;
+    if encoded.len() > MAX_ENCODED_BYTES {
+        return Err("Wayland encoded overlay exceeds the bounded frame size".into());
+    }
+    Ok(encoded)
+}
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Monitor {
@@ -93,5 +121,27 @@ mod tests {
         let m = json!({"id":0,"x":0,"y":0,"width":1920,"height":1080,"scale":1});
         assert!(monitors(&json!([m, m])).is_err());
         assert!(pointer(&json!({"x":1e100,"y":0})).is_none());
+    }
+
+    #[test]
+    fn native_png_transport_preserves_dimensions_and_transparency() {
+        let mut pixels = tiny_skia::Pixmap::new(2, 2).unwrap();
+        pixels
+            .data_mut()
+            .copy_from_slice(&[0, 0, 0, 0, 64, 32, 16, 128, 255, 222, 0, 255, 3, 2, 1, 4]);
+        let encoded = encode_frame(&pixels).unwrap();
+        assert!(encoded.len() >= 33 && encoded.len() <= MAX_ENCODED_BYTES);
+        assert_eq!(&encoded[..8], b"\x89PNG\r\n\x1a\n");
+        assert_eq!(encoded[24], 8); // bit depth
+        assert_eq!(encoded[25], 6); // RGBA, as required by the Shell validator
+        let decoded = tiny_skia::Pixmap::decode_png(&encoded).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (2, 2));
+        for (before, after) in pixels.data().iter().zip(decoded.data()) {
+            assert!(
+                before.abs_diff(*after) <= 1,
+                "premultiplication must preserve the visible color"
+            );
+        }
+        assert_eq!(&decoded.data()[..4], &[0, 0, 0, 0]);
     }
 }

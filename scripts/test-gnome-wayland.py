@@ -34,6 +34,12 @@ if not extension.is_dir():
 reports = REPOSITORY / ".test-data"
 reports.mkdir(exist_ok=True)
 test_root = Path(tempfile.mkdtemp(prefix="gnome-wayland-", dir=reports))
+components = subprocess.check_output(
+    ["dpkg-query", "-W", "-f=${Package} ${Version}\n", "gnome-shell", "libgjs0g", "libmozjs-115-0t64", "libglib2.0-0t64"],
+    text=True,
+)
+(test_root / "system-packages.txt").write_text(components, encoding="utf-8")
+print(components, flush=True)
 # A short socket path avoids AF_UNIX's path limit in deeply nested CI repos.
 with tempfile.TemporaryDirectory(prefix="lolping-gnome-runtime-") as runtime:
     os.chmod(runtime, 0o700)

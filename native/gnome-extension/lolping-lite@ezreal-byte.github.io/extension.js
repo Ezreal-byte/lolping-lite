@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import Clutter from 'gi://Clutter';
-import Cogl from 'gi://Cogl';
+import Cairo from 'cairo';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -10,8 +10,9 @@ import St from 'gi://St';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {
-    BUS_NAME, OBJECT_PATH, INTERFACE, SHORTCUTS, BridgeSession, Gesture, DesktopSession,
-    parseMessage, validateDirectory, validatePrivateFile, validateFrame, validateRuntime, readFramePixels,
+    BUS_NAME, OBJECT_PATH, INTERFACE, PROTOCOL_VERSION, SHORTCUTS, BridgeSession, Gesture, DesktopSession,
+    parseMessage, validateDirectory, validatePrivateFile, validateFrame, validateRuntime,
+    validateFrameFile, readPngHeader,
 } from './protocol.js';
 
 const XML = `<node><interface name="${INTERFACE}">
@@ -37,6 +38,15 @@ function fileInfo(path) {
         uid: info.get_attribute_uint32('unix::uid'),
         mode: info.get_attribute_uint32('unix::mode'),
     };
+}
+
+function readHeader(path, count) {
+    const stream = Gio.File.new_for_path(path).read(null);
+    try {
+        return stream.read_bytes(count, null).get_data();
+    } finally {
+        stream.close(null);
+    }
 }
 
 class Bridge {
@@ -141,7 +151,7 @@ class Bridge {
             this._ownerWatch = Gio.bus_watch_name_on_connection(this._bus, this._session.owner,
                 Gio.BusNameWatcherFlags.NONE, null, () => this._disconnect('application-exited'));
             return {
-                protocol: 1, monitors: this._monitors(), session: 'gnome-wayland',
+                protocol: PROTOCOL_VERSION, monitors: this._monitors(), session: 'gnome-wayland',
                 shortcuts: SHORTCUTS, available: this._desktopAvailable(),
             };
         }, true);
@@ -185,41 +195,77 @@ class Bridge {
             const frame = validateFrame(parseMessage(text), this._monitors());
             const path = `${this._session.directory}/${frame.file}`;
             validatePrivateFile(fileInfo(this._session.directory), this._uid, true);
-            const info = fileInfo(path);
-            validatePrivateFile(info, this._uid);
-            if (info.size !== frame.bytes)
-                throw new Error('Frame file length does not match its dimensions');
-            const pixels = readFramePixels(path, frame.bytes, filename => GLib.file_get_contents(filename));
-            let entry = this._frames.get(frame.monitor);
-            // GNOME 46 Clutter.Image derives its preferred size from the current
-            // texture. St.ImageContent fixes that size at construction, which
-            // does not fit cropped overlay frames whose dimensions can change.
-            const content = entry?.content ?? new Clutter.Image();
-            // GJS accounts for this Uint8Array's full allocation. Per-frame
-            // MappedFile/GBytes wrappers would retain mappings until GC, and
-            // retaining GBytes while Rust rewrites its data breaks immutability.
-            // GNOME 46 set_data copies into texture memory before returning, so
-            // this reply acknowledges that Rust may rewrite its private file.
-            // https://gitlab.gnome.org/GNOME/mutter/-/blob/gnome-46/clutter/clutter/clutter-image.c
-            if (!content.set_data(pixels, Cogl.PixelFormat.RGBA_8888_PRE,
-                frame.width, frame.height, frame.width * 4))
-                throw new Error('Cannot upload the native overlay frame');
-            if (!entry) {
-                const actor = new Clutter.Actor({reactive: false, content});
-                Main.uiGroup.add_child(actor);
-                entry = {actor, content};
-                this._frames.set(frame.monitor, entry);
-            }
-            const {actor} = entry;
-            actor.set_position(frame.x, frame.y);
-            actor.set_size(frame.width / frame.scale, frame.height / frame.scale);
-            actor.show();
-            Main.uiGroup.set_child_above_sibling(actor, null);
-            if (!this._unredirect) {
-                Meta.disable_unredirect_for_display(global.display);
-                this._unredirect = true;
+            validateFrameFile(fileInfo(path), this._uid, frame);
+            readPngHeader(path, frame, readHeader);
+            // Decode in native Cairo, never transfer full frame pixel arrays
+            // into GJS. Ubuntu 24.04's GJS 1.80.2 can incorrectly block every
+            // Shell callback during incremental GC (GNOME/gjs!950).
+            let surface = null;
+            try {
+                surface = Cairo.ImageSurface.createFromPNG(path);
+                if (surface.getWidth() !== frame.width || surface.getHeight() !== frame.height)
+                    throw new Error('Decoded PNG dimensions do not match the bounded frame');
+                validatePrivateFile(fileInfo(this._session.directory), this._uid, true);
+                validateFrameFile(fileInfo(path), this._uid, frame);
+                let entry = this._frames.get(frame.monitor);
+                if (!entry) {
+                    const actor = new St.DrawingArea({reactive: false, can_focus: false});
+                    entry = {actor, surface: null, scale: frame.scale, repaintId: 0, paintError: null};
+                    entry.repaintId = actor.connect('repaint', () => this._paintFrame(entry));
+                    this._frames.set(frame.monitor, entry);
+                    Main.uiGroup.add_child(actor);
+                }
+                const previous = entry.surface;
+                entry.surface = surface;
+                entry.scale = frame.scale;
+                entry.paintError = null;
+                surface = null; // The monitor owns the fully decoded surface.
+                previous?.finish();
+                const {actor} = entry;
+                actor.set_position(frame.x, frame.y);
+                actor.set_size(frame.width / frame.scale, frame.height / frame.scale);
+                actor.show();
+                Main.uiGroup.set_child_above_sibling(actor, null);
+                actor.queue_repaint();
+                if (entry.paintError)
+                    throw entry.paintError;
+                if (!this._unredirect) {
+                    Meta.disable_unredirect_for_display(global.display);
+                    this._unredirect = true;
+                }
+                // Native decoding is complete before ACK. Repaint uses the
+                // owned surface, so Rust may immediately rewrite its PNG.
+            } catch (error) {
+                this._clear(frame.monitor);
+                throw error;
+            } finally {
+                // finish() frees image pixels without manually unref'ing the
+                // GJS-owned wrapper; its eventual finalizer remains safe.
+                surface?.finish();
             }
         });
+    }
+
+    _paintFrame(entry) {
+        let context = null;
+        try {
+            context = entry.actor.get_context();
+            // St.DrawingArea clears its native buffer before this signal.
+            // SOURCE preserves transparent pixels when replacing the image.
+            context.setOperator(Cairo.Operator.SOURCE);
+            if (entry.surface) {
+                context.scale(1 / entry.scale, 1 / entry.scale);
+                context.setSourceSurface(entry.surface, 0, 0);
+                context.paint();
+            }
+        } catch (error) {
+            entry.paintError = error;
+            this._emit({type: 'error', error: `Cannot paint the native overlay: ${error.message ?? error}`});
+        } finally {
+            // Required by St.DrawingArea's API to release the temporary native
+            // drawing context before returning to the compositor.
+            context?.$dispose();
+        }
     }
 
     _emit(event) {
@@ -368,10 +414,11 @@ class Bridge {
     }
 
     _clear(monitor = -1) {
-        for (const [id, {actor}] of this._frames) {
+        for (const [id, {actor, surface, repaintId}] of this._frames) {
             if (monitor === -1 || id === monitor) {
-                actor.set_content(null);
+                actor.disconnect(repaintId);
                 actor.destroy();
+                surface?.finish();
                 this._frames.delete(id);
             }
         }

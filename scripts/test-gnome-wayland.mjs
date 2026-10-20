@@ -207,7 +207,10 @@ try {
 
   async function sampleMappings(stage) {
     const diagnostics = await rpc.request('diagnostics');
+    const processStatus = readFileSync(`/proc/${shell.pid}/status`, 'utf8');
+    const kib = field => Number(processStatus.match(new RegExp(`^${field}:\\s+(\\d+)`, 'm'))?.[1] ?? 0);
     mappingSamples.push({ stage, presentedFrames: diagnostics.presentedFrames,
+      shellRssKiB: kib('VmRSS'), shellAnonymousKiB: kib('RssAnon'), shellPeakRssKiB: kib('VmHWM'),
       mappedFrameFiles: readFileSync(`/proc/${shell.pid}/maps`, 'utf8').split('\n').filter(line => line.includes('/lolping-lite-frames-')).length });
     return diagnostics;
   }
@@ -225,18 +228,18 @@ try {
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await rpc.request('settings', { pingDurationS: 1 });
   checks.push('Native signal frames are acknowledged by GNOME and cleared when the animation finishes');
-  for (let cycle = 0; cycle < 8; cycle++) {
+  for (let cycle = 0; cycle < 20; cycle++) {
     const diagnostics = await sampleMappings(`preview-${cycle}`);
-    if (diagnostics.presentedFrames - initial.presentedFrames >= 100) break;
+    if (diagnostics.presentedFrames - initial.presentedFrames >= 300) break;
     await rpc.request('preview', { id: 'missing', wheel: 'ping' });
     await rpc.poll('diagnostics', value => value.visibleWindows > 0);
     await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   }
-  const afterFrames = await sampleMappings('after-100-frames');
-  assert.ok(afterFrames.presentedFrames - initial.presentedFrames >= 100, 'The mapping observation must cover at least 100 acknowledged native frames');
+  const afterFrames = await sampleMappings('after-300-frames');
+  assert.ok(afterFrames.presentedFrames - initial.presentedFrames >= 300, 'The lifecycle and GC regression must cover at least 300 acknowledged native frames');
   assert.ok(mappingSamples.every(sample => sample.mappedFrameFiles === 0), 'GNOME must copy mutable frame bytes instead of retaining file mappings across animation frames');
   await assertRunning('After native signal previews');
-  checks.push('At least 100 acknowledged native animation frames leave zero retained frame-file mappings in GNOME Shell');
+  checks.push('At least 300 acknowledged native animation frames keep the application healthy with zero retained frame-file mappings in GNOME Shell');
 
   const foreignClear = dbus('Clear', ['0'], true);
   assert.notEqual(foreignClear.status, 0, 'A different session-bus sender must not control the application overlay');
