@@ -55,6 +55,15 @@ function privateInput(...args) {
   assert.equal(process.env.LOLPING_PRIVATE_GNOME, '1');
   return command('xdotool', args);
 }
+async function capture(name) {
+  // Allow the acknowledged texture to reach the compositor's next frame.
+  await delay(100);
+  const result = spawnSync('python3', [join(repository, 'scripts/capture-private-gnome.py'), name], {
+    encoding: 'utf8', timeout: 15000, env: { ...process.env, GDK_BACKEND: 'x11' },
+  });
+  assert.equal(result.status, 0, `Private screenshot: ${result.error ?? result.stderr}`);
+  console.log(result.stdout.trim());
+}
 function releaseKeys() {
   command('xdotool', ['keyup', 'q', 'e', 'p', 'Escape', 'Alt_L', 'Super_L'], true);
 }
@@ -148,9 +157,12 @@ try {
   }
   await sampleMappings('before-preview');
 
+  await rpc.request('settings', { pingDurationS: 3 });
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });
   await rpc.poll('diagnostics', value => value.visibleWindows > 0 && value.surfaceBytes > 0 && value.presentedFrames > initial.presentedFrames);
+  await capture('signal');
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
+  await rpc.request('settings', { pingDurationS: 1 });
   checks.push('Native signal frames are acknowledged by GNOME and cleared when the animation finishes');
   for (let cycle = 0; cycle < 8; cycle++) {
     const diagnostics = await sampleMappings(`preview-${cycle}`);
@@ -176,6 +188,7 @@ try {
   privateInput('mousemove', '--window', windowId, '640', '480');
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
+  await capture('wheel');
   privateInput('mousemove', '--window', windowId, '755', '480');
   await delay(150);
   releaseKeys();
@@ -302,7 +315,10 @@ try {
   if (rpc) {
     const state = await rpc.request('state', {}, 3000).catch(error => ({ error: String(error) }));
     const diagnostics = await rpc.request('diagnostics', {}, 3000).catch(error => ({ error: String(error) }));
-    const snapshot = { passed, checks, state, diagnostics, events: rpc.history };
+    // The state includes base64 thumbnails; keep configuration and error
+    // evidence without flooding CI logs with unrelated image data.
+    const { emotes: _emotes, ...stateSummary } = state;
+    const snapshot = { passed, checks, state: stateSummary, diagnostics, events: rpc.history };
     writeFileSync(join(testData, 'runtime-state.json'), JSON.stringify(snapshot, null, 2) + '\n');
     if (!passed) console.error(`Wayland runtime state:\n${JSON.stringify(snapshot, null, 2)}`);
     writeFileSync(join(testData, 'application.log'), rpc.log);

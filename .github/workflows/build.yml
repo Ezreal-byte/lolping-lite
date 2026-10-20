@@ -164,6 +164,8 @@ jobs:
             .test-data/gnome-wayland-*/input-events.json
             .test-data/gnome-wayland-*/mapping-samples.json
             .test-data/gnome-wayland-*/runtime-state.json
+            .test-data/gnome-wayland-*/signal.png
+            .test-data/gnome-wayland-*/wheel.png
 
   release-ready:
     name: All three native builds passed

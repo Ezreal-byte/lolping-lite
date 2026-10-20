@@ -79,6 +79,7 @@ try:
             "GNOME_SHELL_SESSION_MODE": "user",
             "MUTTER_DEBUG_DUMMY_MODE_SPECS": "1280x960@60.0",
             "NO_AT_BRIDGE": "1", "LOLPING_PRIVATE_GNOME": "1",
+            "LOLPING_PRIVATE_XDISPLAY": ":" + number,
             "LOLPING_GNOME_TEST_DATA": str(test_root),
         }
         # Never inherit a real desktop's D-Bus, display or input settings.

@@ -288,7 +288,10 @@ class Bridge {
         }
         const [x, y] = global.get_pointer();
         const event = this._gesture.begin(kind, x, y, true);
-        this._captureId = global.stage.connect('captured-event', (_stage, input) => {
+        // A Clutter seat grab routes events only inside the grabbed actor's
+        // subtree; ancestors such as global.stage do not receive capture.
+        // Attach to the same actor passed to pushModal, as GNOME menus do.
+        this._captureId = this._modalActor.connect('captured-event', (_actor, input) => {
             try {
                 return this._capture(input);
             } catch (error) {
@@ -344,7 +347,7 @@ class Bridge {
 
     _releaseModal() {
         if (this._captureId) {
-            global.stage.disconnect(this._captureId);
+            this._modalActor.disconnect(this._captureId);
             this._captureId = 0;
         }
         for (const property of ['_moveSource', '_timeoutSource']) {

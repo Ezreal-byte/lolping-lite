@@ -6,7 +6,7 @@
 
 - Ubuntu 设置能够打开，但启动失败，原实现的 `global_input_available` 明确拒绝 Wayland/XWayland。只移除拒绝条件无法让 X11 helper 获得原生 Wayland 应用的全局输入，也无法让 X11 覆盖层变成 Wayland 原生覆盖层。
 - Windows 设置的缩略图缓存缺失时原先在 UI 线程同步读取和解码，FIFO 缓存也不反映最近访问；拖边导致可见内容变化时会出现额外阻塞。新实现使用一个有界后台解码线程和 LRU 缓存，限制同时排队任务及每帧纹理上传。
-- eframe 0.37 在 Windows resize 回调中同步绘制。默认 Glow 垂直同步也可能等待显卡，但目前不足以断言它是用户卡顿的唯一原因。保留生产默认设置，添加仅测试用的帧记录与 vsync A/B 参数。
+- eframe 0.37 在 Windows resize 回调中同步绘制。原始 944 次采样中有 218 次尺寸变化，eframe 中位耗时 5.75 ms、p95 8.85 ms；3 次约 2.4 秒的长帧占相邻采样间隔的 99.4%–99.8%。这段计时排除了交换缓冲和 OpenGL context 切换，仍需区分应用逻辑、绘制、驱动调用和平台输出。保留生产默认设置，添加仅测试用的帧记录与 vsync A/B 参数。
 - 已取得的原版拖边记录有长帧；随后桌面控制收到用户 Escape 停止信号，实机 A/B 未完成，不能据此宣传“拖边卡顿已完全消除”。之后只执行代码与非桌面验证。
 
 ## 验证状态
@@ -28,7 +28,7 @@
 
 结果支持“减少冷加载解码突刺”；预热后的布局耗时基本持平，不能解释原始桌面 trace 中约 2.4 秒的 eframe 长帧。该 eframe 指标包含绘制与 GL 调用，但排除了交换缓冲等待；不能直接归因为 vsync。生产 vsync 设置保持原值，未将尚未验证的显卡同步猜测作为修复。[汇总数据](resize-cpu-comparison.json)
 
-可用 `LOLPING_UI_TEST_RESIZE_TRACE=<JSON 路径>` 记录真实窗口帧：包含上一帧 eframe 耗时和当前帧 App UI 耗时，关闭设置时写出文件；正常运行不采样、不写日志。`LOLPING_UI_TEST_VSYNC=0/1` 仅供对照诊断。复现离屏基准使用 `cargo test --release --locked resize_layout_cpu_profile -- --ignored --nocapture`，测试专用 `LOLPING_UI_TEST_SYNC_THUMBNAILS=1` 切换同步对照，`LOLPING_UI_TEST_CPU_REPORT` 指定输出文件。
+可用 `LOLPING_UI_TEST_RESIZE_TRACE=<JSON 路径>` 记录真实窗口帧：包含上一帧 eframe 耗时和当前次 UI 绘制耗时，关闭设置时写出文件；正常运行不采样、不写日志。`previousEframeMs` 属于前一呈现帧，不能减去同一行的 `currentUiMs`；后者不包含 `App::logic`，egui 还可能在一帧内执行多次 UI pass。`LOLPING_UI_TEST_VSYNC=0/1` 仅供对照诊断。复现离屏基准使用 `cargo test --release --locked resize_layout_cpu_profile -- --ignored --nocapture`，测试专用 `LOLPING_UI_TEST_SYNC_THUMBNAILS=1` 切换同步对照，`LOLPING_UI_TEST_CPU_REPORT` 指定输出文件。
 
 ## 尚待完成
 
