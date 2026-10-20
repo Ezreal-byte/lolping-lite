@@ -48,6 +48,7 @@ try {
   requireBundledLibrary(rpc.child.pid, 'libgtk-3.so.0');
   const environment = readFileSync(`/proc/${rpc.child.pid}/environ`, 'utf8').split('\0');
   assert.ok(environment.includes(`GSETTINGS_SCHEMA_DIR=${join(bundle, 'usr/share/glib-2.0/schemas')}`));
+  assert.ok(environment.includes(`GIO_MODULE_DIR=${join(bundle, 'usr/lib/gio/modules')}`));
   checks.push('AppRun executes the packaged controller and loads the bundled GTK library');
 
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });

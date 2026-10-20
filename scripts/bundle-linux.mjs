@@ -6,9 +6,10 @@ export function bundleLinux(appdir) {
   const libdir = ensure(join(appdir, 'usr/lib'));
   const bundled = new Map();
   let bundledLibraryBytes = 0;
-  // glibc and GL/Vulkan drivers must match the host. Ship application libraries,
-  // never the host loader, graphics driver, or glibc NSS modules.
-  const hostLibrary = /^(ld-linux|lib(c|m|pthread|dl|rt|resolv|util|nss_[^.]+|anl)\.so|lib(GL|GLX|GLdispatch|EGL|GLES|OpenGL|glapi|vulkan|drm|gbm|nvidia|gallium|LLVM))/;
+  // Keep the host graphics stack and the shared runtimes it needs together.
+  // New Mesa drivers can require newer C++/Wayland/X11 symbols than this build
+  // baseline. These exact exclusions also follow pkg2appimage's excludelist.
+  const hostLibrary = /^(ld-linux|lib(c|m|pthread|dl|rt|resolv|util|nss_[^.]+|anl)\.so|lib(GL|GLX|GLdispatch|EGL|GLES|OpenGL|glapi|vulkan|drm|gbm|nvidia|gallium|LLVM))|^(libstdc\+\+\.so\.6|libgcc_s\.so\.1|libwayland-client\.so\.0|libX11\.so\.6|libX11-xcb\.so\.1|libxcb\.so\.1)$/;
   const queue = [join(appdir, 'usr/bin/lolping-lite'), join(appdir, 'usr/bin/hook-helper')];
   const ldconfig = run('ldconfig', ['-p'], { stdio: 'pipe' }).toString();
   const indicator = ldconfig.split('\n').find(line => line.includes('libayatana-appindicator3.so.1 ') && line.includes('x86-64'))?.trim().split(' => ')[1];
@@ -17,6 +18,20 @@ export function bundleLinux(appdir) {
   if (!xkb) throw Error('Install libxkbcommon-x11-0 before AppImage packaging');
   const dynamicRoots = new Set([indicator, xkb]);
   queue.push(...dynamicRoots);
+  // GIO loads its dconf backend dynamically. The host's module may require a
+  // newer GLib ABI than our Ubuntu 22 baseline, so keep the matching module
+  // beside the bundled GIO and use the host's private-session dconf service.
+  const dconf = run('dpkg-query', ['-L', 'dconf-gsettings-backend'], { stdio: 'pipe' }).toString()
+    .split('\n').find(path => path.endsWith('/gio/modules/libdconfsettings.so'));
+  if (!dconf) throw Error('Install dconf-gsettings-backend before AppImage packaging');
+  const moduleDir = ensure(join(libdir, 'gio/modules'));
+  const moduleSource = realpathSync(dconf), moduleInfo = statSync(moduleSource);
+  if (!moduleInfo.isFile()) throw Error(`GIO module is not a regular file: ${dconf}`);
+  copyFileSync(moduleSource, join(moduleDir, basename(dconf)));
+  chmodSync(join(moduleDir, basename(dconf)), moduleInfo.mode & 0o777);
+  bundledLibraryBytes += moduleInfo.size;
+  const gioModules = { 'gio/modules/libdconfsettings.so': dconf };
+  queue.push(dconf);
   const scan = new Set();
   while (queue.length) {
     const binary = queue.shift();
@@ -42,6 +57,7 @@ export function bundleLinux(appdir) {
       bundled.set(soname, path); queue.push(path);
     }
   }
+  run('gio-querymodules', [moduleDir]);
   // GtkFileChooser constructs these GSettings objects unconditionally. A host
   // without system GTK must not lose native imports because its schemas are absent.
   const schemaDir = ensure(join(appdir, 'usr/share/glib-2.0/schemas'));
@@ -66,7 +82,7 @@ export function bundleLinux(appdir) {
     copyFileSync(source, join(commonLicenses, name));
   }
   const packages = new Set();
-  for (const source of [...bundled.values(), ...schemaSources]) {
+  for (const source of [...bundled.values(), ...Object.values(gioModules), ...schemaSources]) {
     let result;
     for (const candidate of [source, realpathSync(source), `*/${basename(realpathSync(source))}`]) {
       try { result = run('dpkg-query', ['-S', candidate], { stdio: 'pipe' }).toString().trim().split('\n')[0]; break; } catch { /* /lib and /usr/lib aliases differ on usr-merged systems. */ }
@@ -79,6 +95,6 @@ export function bundleLinux(appdir) {
     if (!existsSync(copyright)) throw Error(`Missing dependency license: ${pkg}`);
     copyFileSync(realpathSync(copyright), join(noticeDir, `${pkg.replaceAll(':', '-')}.txt`));
   }
-  write(join(noticeDir, 'manifest.json'), JSON.stringify({ libraries: Object.fromEntries(bundled), bundledLibraryBytes, schemas: schemaSources, bundledSchemaBytes, packages: [...packages], hostLibraries: ['glibc', 'OpenGL/EGL/Vulkan drivers'] }, null, 2) + '\n');
-  console.log(`AppImage: bundled ${bundled.size} native libraries (${bundledLibraryBytes} bytes) and ${schemas.length} GTK schemas (${bundledSchemaBytes} bytes); glibc and GPU drivers remain system dependencies.`);
+  write(join(noticeDir, 'manifest.json'), JSON.stringify({ libraries: Object.fromEntries(bundled), gioModules, bundledLibraryBytes, schemas: schemaSources, bundledSchemaBytes, packages: [...packages], hostLibraries: ['glibc', 'OpenGL/EGL/Vulkan drivers', 'libstdc++.so.6', 'libgcc_s.so.1', 'libwayland-client.so.0', 'libX11.so.6', 'libX11-xcb.so.1', 'libxcb.so.1'] }, null, 2) + '\n');
+  console.log(`AppImage: bundled ${bundled.size} native libraries (${bundledLibraryBytes} bytes) and ${schemas.length} GTK schemas (${bundledSchemaBytes} bytes); glibc, GPU drivers and their shared C++/Wayland/X11 runtimes remain system dependencies.`);
 }

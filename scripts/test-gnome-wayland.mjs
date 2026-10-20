@@ -98,9 +98,19 @@ try {
   privateInput('key', 'Escape');
   await delay(600);
 
+  for (const bundled of [false, true]) {
+    const env = { ...process.env };
+    if (bundled) env.LD_LIBRARY_PATH = join(dirname(executable), 'usr/lib');
+    const diagnostic = spawnSync('python3', [join(repository, 'scripts/diagnose-linux-egl.py')], {
+      encoding: 'utf8', timeout: 15000, env,
+    });
+    appendFileSync(join(testData, 'egl-loader.log'), `${bundled ? 'AppImage' : 'System'} EGL dependencies:\n${diagnostic.stdout ?? ''}${diagnostic.stderr ?? ''}${diagnostic.error ?? ''}\n`);
+    console.log(`EGL dependency diagnostics (${bundled ? 'AppImage' : 'system'}):\n${diagnostic.stdout ?? ''}${diagnostic.stderr ?? ''}${diagnostic.error ?? ''}`);
+  }
   rpc = new Rpc(root, join(testData, 'application'), executable, {
     production: true,
-    env: { WAYLAND_DISPLAY: waylandDisplay, XDG_SESSION_TYPE: 'wayland', GDK_BACKEND: 'wayland' },
+    env: { WAYLAND_DISPLAY: waylandDisplay, XDG_SESSION_TYPE: 'wayland', GDK_BACKEND: 'wayland',
+      EGL_LOG_LEVEL: 'debug', LIBGL_DEBUG: 'verbose' },
   });
   await rpc.waitFor(event => event.event === 'ui/ready', 40000);
   await rpc.request('settings', { volume: 0, keepLastPing: false, pingDurationS: 1 });
@@ -119,6 +129,9 @@ try {
   assert.equal(installation.extensionId, extensionUuid);
   assert.equal(installation.reloginRequired, false, 'An already-loaded identical extension must not request another login');
   assert.equal(statSync(installedMetadata).mtimeMs, metadataModified, 'Identical extension files must not be rewritten');
+  const maps = readFileSync(`/proc/${rpc.child.pid}/maps`, 'utf8');
+  assert.ok(maps.includes(join(dirname(executable), 'usr/lib/gio/modules/libdconfsettings.so')),
+    'The AppImage must load its own dconf backend built against its bundled GLib');
   checks.push('Installing an identical already-enabled extension succeeds without rewriting it or requesting another login');
 
   async function sampleMappings(stage) {
@@ -248,6 +261,22 @@ try {
   assert.equal(removed.helperPid, null);
   checks.push('Disabling the GNOME extension reports a recoverable failure and never falls back to XWayland');
 
+  // Read back via a fresh host GSettings process, using the same private dconf
+  // service as Shell. A builtin keyfile fallback would silently miss this test.
+  const unrelatedEnabled = 'unrelated-enabled@lolping-test.invalid';
+  const unrelatedDisabled = 'unrelated-disabled@lolping-test.invalid';
+  command('gsettings', ['set', 'org.gnome.shell', 'enabled-extensions', `['${unrelatedEnabled}']`]);
+  command('gsettings', ['set', 'org.gnome.shell', 'disabled-extensions', `['${unrelatedDisabled}', '${extensionUuid}']`]);
+  const reinstalled = await rpc.request('wayland/install');
+  assert.equal(reinstalled.ok, true);
+  const readExtensions = key => JSON.parse(command('gsettings', ['get', 'org.gnome.shell', key]).stdout.trim()
+    .replace(/^@as /, '').replaceAll("'", '"'));
+  assert.deepEqual(new Set(readExtensions('enabled-extensions')), new Set([unrelatedEnabled, extensionUuid]));
+  assert.deepEqual(readExtensions('disabled-extensions'), [unrelatedDisabled]);
+  assert.ok(statSync(join(process.env.XDG_CONFIG_HOME, 'dconf/user')).size > 0);
+  assert.equal(command('gsettings', ['get', 'org.gnome.shell', 'disable-user-extensions']).stdout.trim(), 'false');
+  checks.push('AppImage installer writes the shared private dconf database; fresh host GSettings reads back its UUID and preserves unrelated extension preferences');
+
   await rpc.close();
   mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, JSON.stringify({ platform: 'Ubuntu 24.04 / GNOME 46 Wayland', passed: true,
@@ -265,7 +294,7 @@ try {
   }
   await finishShell();
   if (!passed) {
-    for (const name of ['gnome-shell.log', 'application.log', 'input-client.log']) {
+    for (const name of ['gnome-shell.log', 'application.log', 'input-client.log', 'egl-loader.log']) {
       const path = join(testData, name);
       if (existsSync(path)) console.error(`${name} (tail):\n${readFileSync(path, 'utf8').slice(-12000)}`);
     }

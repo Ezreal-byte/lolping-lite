@@ -71,6 +71,12 @@ for (const artifact of metadata.artifacts) {
     verifyTree(appdir, join(appdir, 'usr/share/lolping-lite/checksums.json'), 'usr/share/lolping-lite/', 'usr/bin/');
     assert.ok(existsSync(join(appdir, 'usr/lib/libgtk-3.so.0')));
     assert.ok(existsSync(join(appdir, 'usr/lib/libayatana-appindicator3.so.1')));
+    for (const library of ['libstdc++.so.6', 'libgcc_s.so.1', 'libwayland-client.so.0', 'libX11.so.6', 'libX11-xcb.so.1', 'libxcb.so.1']) {
+      assert.equal(existsSync(join(appdir, 'usr/lib', library)), false, `${library} must match the host GPU drivers`);
+    }
+    const moduleDir = join(appdir, 'usr/lib/gio/modules');
+    assert.ok(lstatSync(join(moduleDir, 'libdconfsettings.so')).isFile());
+    assert.match(readFileSync(join(moduleDir, 'giomodule.cache'), 'utf8'), /libdconfsettings\.so:.*gsettings-backend/);
     assert.ok(existsSync(join(appdir, 'usr/share/lolping-lite/licenses/linux-bundled/manifest.json')));
     const schemaDir = join(appdir, 'usr/share/glib-2.0/schemas');
     assert.ok(existsSync(join(schemaDir, 'gschemas.compiled')));
@@ -78,7 +84,7 @@ for (const artifact of metadata.artifacts) {
     // open the native import chooser using this AppImage's own settings schema.
     const emptyData = resetGenerated('.cache/verify/empty-xdg-data', '.cache/verify/empty-xdg-data');
     const schemaEnv = { ...process.env, XDG_DATA_DIRS: emptyData, XDG_DATA_HOME: emptyData,
-      GSETTINGS_SCHEMA_DIR: schemaDir, GSETTINGS_BACKEND: 'memory', LD_LIBRARY_PATH: join(appdir, 'usr/lib') };
+      GSETTINGS_SCHEMA_DIR: schemaDir, GSETTINGS_BACKEND: 'memory', GIO_MODULE_DIR: moduleDir, LD_LIBRARY_PATH: join(appdir, 'usr/lib') };
     const schemas = run('gsettings', ['list-schemas'], { env: schemaEnv, stdio: 'pipe' }).toString().trim().split('\n');
     assert.ok(schemas.includes('org.gtk.Settings.FileChooser'), 'The extracted bundle supplies the native chooser schema');
     assert.match(run('gsettings', ['get', 'org.gtk.Settings.FileChooser', 'sort-directories-first'], { env: schemaEnv, stdio: 'pipe' }).toString().trim(), /^(true|false)$/);

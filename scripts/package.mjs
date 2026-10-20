@@ -72,7 +72,7 @@ if (process.platform === 'linux') {
   for (const path of ['.DirIcon', 'lolping-lite.png', 'usr/share/icons/hicolor/128x128/apps/lolping-lite.png']) {
     ensure(dirname(join(stage, path))); copyFileSync(join(root, 'assets/plugin.png'), join(stage, path));
   }
-  write(join(stage, 'AppRun'), `#!/bin/sh\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LOLPING_ROOT="$HERE/usr/share/lolping-lite"\nexport LD_LIBRARY_PATH="$HERE/usr/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexport GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas"\nexec "$HERE/usr/bin/lolping-lite" "$@"\n`);
+  write(join(stage, 'AppRun'), `#!/bin/sh\nset -eu\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexport LOLPING_ROOT="$HERE/usr/share/lolping-lite"\nexport LD_LIBRARY_PATH="$HERE/usr/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\nexport GIO_MODULE_DIR="$HERE/usr/lib/gio/modules"\nexport GSETTINGS_SCHEMA_DIR="$HERE/usr/share/glib-2.0/schemas"\nexec "$HERE/usr/bin/lolping-lite" "$@"\n`);
   chmodSync(join(stage, 'AppRun'), 0o755);
 }
 
@@ -119,7 +119,7 @@ if (process.platform === 'win32') {
   const debRoot = ensure(join(stageBase, 'deb'));
   cpSync(join(stage, 'usr'), join(debRoot, 'usr'), { recursive: true });
   makeChecksums(debRoot, join(debRoot, 'usr/share/lolping-lite/checksums.json'));
-  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libxkbcommon-x11-0, libayatana-appindicator3-1, libgl1, libegl1\nSuggests: gnome-shell (>= 46), gnome-shell (<< 47)\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Supports X11 with a compositor. GNOME 46 Wayland requires the bundled\n LOLPing Lite extension to be installed and enabled by the user.\n`);
+  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libxkbcommon-x11-0, libayatana-appindicator3-1, libgl1, libegl1, dconf-gsettings-backend\nSuggests: gnome-shell (>= 46), gnome-shell (<< 47)\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Supports X11 with a compositor. GNOME 46 Wayland requires the bundled\n LOLPing Lite extension to be installed and enabled by the user.\n`);
   const deb = join(dist, `${stem}.deb`);
   run('dpkg-deb', ['--root-owner-group', '--build', debRoot, deb]);
   record(deb, { kind: 'debian', minimum: 'glibc 2.35; X11 + compositor, or GNOME 46 Wayland + enabled LOLPing Lite extension' });

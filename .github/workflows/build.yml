@@ -47,7 +47,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxinerama-dev libxcursor-dev libxkbcommon-dev libxkbcommon-x11-dev libayatana-appindicator3-dev libgl1-mesa-dev libegl1-mesa-dev libfuse2 squashfs-tools desktop-file-utils xvfb xauth xcompmgr openbox dbus-x11 dconf-gsettings-backend
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -130,7 +130,7 @@ jobs:
       - name: Install private GNOME compositor test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-shell gnome-shell-common gnome-session-bin gsettings-desktop-schemas xwayland xvfb xauth xdotool dbus-x11 python3-gi gir1.2-gtk-3.0 ripgrep libgtk-3-0t64 libasound2t64 libayatana-appindicator3-1 libxkbcommon-x11-0 libegl1 libgl1-mesa-dri
+          sudo apt-get install -y --no-install-recommends gnome-shell gnome-shell-common gnome-session-bin gsettings-desktop-schemas xwayland xvfb xauth xdotool dbus-x11 dconf-gsettings-backend dconf-service python3-gi gir1.2-gtk-3.0 ripgrep libgtk-3-0t64 libasound2t64 libayatana-appindicator3-1 libxkbcommon-x11-0 libegl1 libgl1-mesa-dri
           gnome-shell --version
       - uses: actions/download-artifact@v4
         with:
@@ -160,6 +160,7 @@ jobs:
             .test-data/gnome-wayland-*/gnome-shell.log
             .test-data/gnome-wayland-*/application.log
             .test-data/gnome-wayland-*/input-client.log
+            .test-data/gnome-wayland-*/egl-loader.log
             .test-data/gnome-wayland-*/input-events.json
             .test-data/gnome-wayland-*/mapping-samples.json
 

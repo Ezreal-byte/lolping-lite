@@ -75,7 +75,7 @@ try:
             "XDG_RUNTIME_DIR": runtime, "XDG_CONFIG_HOME": str(home / ".config"),
             "XDG_CACHE_HOME": str(home / ".cache"), "XDG_DATA_HOME": str(home / ".local/share"),
             "XDG_SESSION_TYPE": "wayland", "XDG_CURRENT_DESKTOP": "GNOME", "XDG_SESSION_DESKTOP": "gnome",
-            "GSETTINGS_BACKEND": "keyfile", "LIBGL_ALWAYS_SOFTWARE": "1",
+            "GSETTINGS_BACKEND": "dconf", "LIBGL_ALWAYS_SOFTWARE": "1",
             "GNOME_SHELL_SESSION_MODE": "user",
             "MUTTER_DEBUG_DUMMY_MODE_SPECS": "1280x960@60.0",
             "NO_AT_BRIDGE": "1", "LOLPING_PRIVATE_GNOME": "1",
@@ -83,7 +83,8 @@ try:
         }
         # Never inherit a real desktop's D-Bus, display or input settings.
         for key in ("DBUS_SESSION_BUS_ADDRESS", "WAYLAND_DISPLAY", "WAYLAND_SOCKET", "GDK_BACKEND",
-                    "WINIT_UNIX_BACKEND", "GDK_SCALE", "GDK_DPI_SCALE", "GSETTINGS_SCHEMA_DIR"):
+                    "WINIT_UNIX_BACKEND", "GDK_SCALE", "GDK_DPI_SCALE", "GSETTINGS_SCHEMA_DIR",
+                    "GIO_MODULE_DIR", "GIO_EXTRA_MODULES", "DCONF_PROFILE", "LD_LIBRARY_PATH"):
             env.pop(key, None)
         print(f"Testing {version} Wayland inside private Xvfb :{number}; evidence: {test_root}", flush=True)
         subprocess.run(
