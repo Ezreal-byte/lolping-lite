@@ -854,6 +854,7 @@ pub fn install_extension(root: &Path) -> Result<Value, String> {
         let filtered: Vec<_> = disabled_uuids
             .iter()
             .filter(|id| id.as_str() != EXTENSION_ID)
+            .map(|id| id.as_str())
             .collect();
         shell_settings
             .set_strv("disabled-extensions", filtered)
