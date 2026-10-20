@@ -40,6 +40,8 @@ pub enum UserEvent {
     HelperGone(u64),
     #[cfg(target_os = "linux")]
     Wayland(u64, Value),
+    #[cfg(target_os = "linux")]
+    DeadlineWake,
     Quit,
 }
 #[derive(Clone, PartialEq)]

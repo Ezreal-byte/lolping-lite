@@ -29,6 +29,8 @@ const waylandDisplay = 'lolping-test-wayland';
 const checks = [];
 const inputEvents = [];
 const mappingSamples = [];
+const keyboardSamples = [];
+const keyboardModifiers = 1 | 4 | 8 | 64 | (1 << 26); // Shift, Ctrl, Alt, Mod4, Super
 let shell, rpc, inputClient;
 let passed = false;
 
@@ -66,6 +68,17 @@ async function capture(name) {
 }
 function releaseKeys() {
   command('xdotool', ['keyup', 'q', 'e', 'p', 'Escape', 'Alt_L', 'Super_L'], true);
+}
+async function sampleKeyboard(stage) {
+  const outer = JSON.parse(command('python3', [join(repository, 'scripts/test-gnome-input-client.py'), '--outer-state']).stdout);
+  const firstEvent = inputEvents.length;
+  privateInput('key', 'a');
+  const letter = await until(() => inputEvents.slice(firstEvent).find(event => event.type === 'key' && event.key === 'a'),
+    `The focused Wayland client did not receive a (${stage})`);
+  const sample = { stage, outer, clientModifiers: letter.state };
+  keyboardSamples.push(sample);
+  console.log(`Private keyboard state: ${JSON.stringify(sample)}`);
+  return sample;
 }
 async function keyCombo(key) {
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'key', key, 'keyup', 'Alt_L', 'keyup', 'Super_L');
@@ -160,7 +173,12 @@ try {
   await rpc.request('settings', { pingDurationS: 3 });
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });
   await rpc.poll('diagnostics', value => value.visibleWindows > 0 && value.surfaceBytes > 0 && value.presentedFrames > initial.presentedFrames);
+  const framesBeforeCapture = (await rpc.request('diagnostics')).presentedFrames;
   await capture('signal');
+  const framesAfterCapture = (await rpc.request('diagnostics')).presentedFrames;
+  console.log(`Native frames during 600 ms without RPC polling: ${framesBeforeCapture} -> ${framesAfterCapture}`);
+  assert.ok(framesAfterCapture - framesBeforeCapture >= 3,
+    'Native animation must advance on its own timer, without RPC polling or pointer motion');
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await rpc.request('settings', { pingDurationS: 1 });
   checks.push('Native signal frames are acknowledged by GNOME and cleared when the animation finishes');
@@ -182,6 +200,26 @@ try {
   assert.match(foreignClear.stderr, /Only the connected LOLPing Lite application/);
   checks.push('A second D-Bus sender cannot clear the active application frames');
 
+  inputClient = spawn('python3', [join(repository, 'scripts/test-gnome-input-client.py')], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, WAYLAND_DISPLAY: waylandDisplay, GDK_BACKEND: 'wayland' },
+  });
+  const inputLines = createInterface({ input: inputClient.stdout, crlfDelay: Infinity });
+  inputLines.on('line', line => inputEvents.push(JSON.parse(line)));
+  inputClient.stderr.on('data', bytes => appendFileSync(join(testData, 'input-client.log'), bytes));
+  await until(() => inputEvents.find(event => event.type === 'ready'), 'The native Wayland input client did not open');
+  assert.match(inputEvents.find(event => event.type === 'ready').displayType, /Wayland/);
+  await delay(400);
+  privateInput('mousemove', '--window', windowId, '640', '480', 'click', '1');
+  await until(() => inputEvents.some(event => event.type === 'release'), 'Click must focus the real Wayland client before baseline input');
+  const initialKeyboard = await sampleKeyboard('before-any-modal');
+  assert.equal(initialKeyboard.clientModifiers & keyboardModifiers, 0, 'Initial client keyboard baseline must be clear');
+  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L');
+  releaseKeys();
+  const baseline = await sampleKeyboard('shortcut-modifiers-without-wheel');
+  assert.equal(baseline.clientModifiers & keyboardModifiers, 0, 'Super/Alt without a wheel must release normally');
+  checks.push('A focused real Wayland client receives unmodified input before any modal wheel, including after plain Super/Alt press and release');
+
   // XTest input goes solely to the private outer Xvfb window, then traverses
   // the real Mutter Wayland seat. This does not bypass the production bridge.
   privateInput('windowfocus', '--sync', windowId);
@@ -195,6 +233,7 @@ try {
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await assertRunning('After Q wheel release');
+  await sampleKeyboard('after-Q-release');
   checks.push('Real Super+Alt+Q input opens the wheel, moves its selection and releases to send');
 
   await rpc.request('settings', { emoteTrigger: 'ctrl' });
@@ -207,6 +246,7 @@ try {
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await assertRunning('After E wheel release');
+  await sampleKeyboard('after-E-release');
   checks.push('With emotes enabled, real Super+Alt+E opens, selects and releases the emote wheel');
 
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
@@ -215,6 +255,7 @@ try {
   releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
   await assertRunning('After Escape cancellation');
+  await sampleKeyboard('after-Escape-cancel');
   checks.push('Escape cancels the Wayland wheel and releases its compositor input grab');
 
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
@@ -230,18 +271,9 @@ try {
   releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
   await assertRunning('After reopening following watchdog cancellation');
+  await sampleKeyboard('after-watchdog-and-reopen');
   checks.push('Holding Q reaches the 15-second safety cancellation without stopping the application; the next wheel still opens and cancels normally');
 
-  inputClient = spawn('python3', [join(repository, 'scripts/test-gnome-input-client.py')], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, WAYLAND_DISPLAY: waylandDisplay, GDK_BACKEND: 'wayland' },
-  });
-  const inputLines = createInterface({ input: inputClient.stdout, crlfDelay: Infinity });
-  inputLines.on('line', line => inputEvents.push(JSON.parse(line)));
-  inputClient.stderr.on('data', bytes => appendFileSync(join(testData, 'input-client.log'), bytes));
-  await until(() => inputEvents.find(event => event.type === 'ready'), 'The native Wayland input client did not open');
-  assert.match(inputEvents.find(event => event.type === 'ready').displayType, /Wayland/);
-  await delay(400);
   privateInput('mousemove', '--window', windowId, '640', '480');
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen);
@@ -250,6 +282,7 @@ try {
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   releaseKeys();
   await assertRunning('After left-click confirmation');
+  await sampleKeyboard('after-left-click-confirmation');
   const afterConfirmation = inputEvents.length;
   privateInput('key', 'a', 'click', '1');
   await until(() => inputEvents.slice(afterConfirmation).some(event => event.type === 'key' && event.key === 'a') &&
@@ -257,7 +290,6 @@ try {
   'Keyboard or pointer input remained captured after click confirmation');
   const received = inputEvents.slice(afterConfirmation);
   const letter = received.find(event => event.type === 'key' && event.key === 'a');
-  const keyboardModifiers = 1 | 4 | 8 | 64 | (1 << 26); // Shift, Ctrl, Alt, Mod4, Super
   assert.equal(letter.state & keyboardModifiers, 0, 'The next client must not retain the wheel shortcut modifiers');
   assert.deepEqual(received.filter(event => event.type === 'press' || event.type === 'release').map(event => event.type), ['press', 'release']);
   checks.push('After left-click confirmation and shortcut release, a real Wayland client receives plain a and exactly one normal click pair');
@@ -327,6 +359,7 @@ try {
   releaseKeys();
   writeFileSync(join(testData, 'input-events.json'), JSON.stringify(inputEvents, null, 2) + '\n');
   writeFileSync(join(testData, 'mapping-samples.json'), JSON.stringify(mappingSamples, null, 2) + '\n');
+  writeFileSync(join(testData, 'keyboard-samples.json'), JSON.stringify(keyboardSamples, null, 2) + '\n');
   if (inputClient && inputClient.exitCode === null) inputClient.kill('SIGTERM');
   if (rpc) {
     const state = await rpc.request('state', {}, 3000).catch(error => ({ error: String(error) }));

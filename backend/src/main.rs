@@ -6,6 +6,8 @@ mod desktop;
 mod desktop_backend;
 mod instance;
 mod links;
+#[cfg(target_os = "linux")]
+mod linux_wake;
 mod native;
 mod platform;
 mod preferences;
@@ -152,6 +154,8 @@ fn run() -> Result<(), String> {
     let mut generation = 0u64;
     let mut quitting: Option<Instant> = None;
     let mut fallback = false;
+    #[cfg(target_os = "linux")]
+    let mut linux_wake = linux_wake::DeadlineWake::default();
     event_loop.run(move |event, target, flow| {
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(500));
         let open_gui = |gui: &mut Option<desktop::SettingsProcess>,
@@ -305,5 +309,9 @@ fn run() -> Result<(), String> {
                 engine.next_wake()
             });
         }
+        // Tao 0.35's GTK loop does not install a timeout for WaitUntil. A
+        // windowless Wayland backend otherwise sleeps until unrelated input.
+        #[cfg(target_os = "linux")]
+        linux_wake.update(*flow, &proxy);
     })
 }

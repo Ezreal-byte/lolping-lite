@@ -180,6 +180,7 @@ jobs:
             .test-data/gnome-wayland-*/input-client.log
             .test-data/gnome-wayland-*/egl-loader.log
             .test-data/gnome-wayland-*/input-events.json
+            .test-data/gnome-wayland-*/keyboard-samples.json
             .test-data/gnome-wayland-*/mapping-samples.json
             .test-data/gnome-wayland-*/runtime-state.json
             .test-data/gnome-wayland-*/signal.png
