@@ -191,7 +191,10 @@ class Bridge {
                 throw new Error('Frame file length does not match its dimensions');
             const pixels = readFramePixels(path, frame.bytes, filename => GLib.file_get_contents(filename));
             let entry = this._frames.get(frame.monitor);
-            const content = entry?.content ?? new St.ImageContent();
+            // GNOME 46 Clutter.Image derives its preferred size from the current
+            // texture. St.ImageContent fixes that size at construction, which
+            // does not fit cropped overlay frames whose dimensions can change.
+            const content = entry?.content ?? new Clutter.Image();
             // GJS accounts for this Uint8Array's full allocation. Per-frame
             // MappedFile/GBytes wrappers would retain mappings until GC, and
             // retaining GBytes while Rust rewrites its data breaks immutability.

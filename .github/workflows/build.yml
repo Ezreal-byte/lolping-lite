@@ -163,6 +163,7 @@ jobs:
             .test-data/gnome-wayland-*/egl-loader.log
             .test-data/gnome-wayland-*/input-events.json
             .test-data/gnome-wayland-*/mapping-samples.json
+            .test-data/gnome-wayland-*/runtime-state.json
 
   release-ready:
     name: All three native builds passed

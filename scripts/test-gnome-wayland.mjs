@@ -122,6 +122,12 @@ try {
   assert.equal(initial.connected, true);
   assert.ok(initial.settingsPid > 0, 'Native settings must remain usable on Wayland');
   checks.push('Packaged Rust controller and native settings start on Wayland without an X11 input helper');
+  async function assertRunning(stage) {
+    const state = await rpc.request('state');
+    const diagnostics = await rpc.request('diagnostics');
+    assert.equal(state.status.state, 'running', `${stage}: ${JSON.stringify(state.status)}`);
+    assert.equal(diagnostics.connected, true, `${stage}: bridge disconnected`);
+  }
   const installedMetadata = join(process.env.XDG_DATA_HOME, 'gnome-shell/extensions', extensionUuid, 'metadata.json');
   const metadataModified = statSync(installedMetadata).mtimeMs;
   const installation = await rpc.request('wayland/install');
@@ -156,6 +162,7 @@ try {
   const afterFrames = await sampleMappings('after-100-frames');
   assert.ok(afterFrames.presentedFrames - initial.presentedFrames >= 100, 'The mapping observation must cover at least 100 acknowledged native frames');
   assert.ok(mappingSamples.every(sample => sample.mappedFrameFiles === 0), 'GNOME must copy mutable frame bytes instead of retaining file mappings across animation frames');
+  await assertRunning('After native signal previews');
   checks.push('At least 100 acknowledged native animation frames leave zero retained frame-file mappings in GNOME Shell');
 
   const foreignClear = dbus('Clear', ['0'], true);
@@ -174,6 +181,7 @@ try {
   releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
+  await assertRunning('After Q wheel release');
   checks.push('Real Super+Alt+Q input opens the wheel, moves its selection and releases to send');
 
   await rpc.request('settings', { emoteTrigger: 'ctrl' });
@@ -185,6 +193,7 @@ try {
   releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
+  await assertRunning('After E wheel release');
   checks.push('With emotes enabled, real Super+Alt+E opens, selects and releases the emote wheel');
 
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
@@ -192,6 +201,7 @@ try {
   privateInput('key', 'Escape');
   releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
+  await assertRunning('After Escape cancellation');
   checks.push('Escape cancels the Wayland wheel and releases its compositor input grab');
 
   inputClient = spawn('python3', [join(repository, 'scripts/test-gnome-input-client.py')], {
@@ -211,6 +221,7 @@ try {
   privateInput('mousedown', '1', 'mouseup', '1');
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   releaseKeys();
+  await assertRunning('After left-click confirmation');
   const afterConfirmation = inputEvents.length;
   privateInput('key', 'a', 'click', '1');
   await until(() => inputEvents.slice(afterConfirmation).some(event => event.type === 'key' && event.key === 'a') &&
@@ -289,6 +300,11 @@ try {
   writeFileSync(join(testData, 'mapping-samples.json'), JSON.stringify(mappingSamples, null, 2) + '\n');
   if (inputClient && inputClient.exitCode === null) inputClient.kill('SIGTERM');
   if (rpc) {
+    const state = await rpc.request('state', {}, 3000).catch(error => ({ error: String(error) }));
+    const diagnostics = await rpc.request('diagnostics', {}, 3000).catch(error => ({ error: String(error) }));
+    const snapshot = { passed, checks, state, diagnostics, events: rpc.history };
+    writeFileSync(join(testData, 'runtime-state.json'), JSON.stringify(snapshot, null, 2) + '\n');
+    if (!passed) console.error(`Wayland runtime state:\n${JSON.stringify(snapshot, null, 2)}`);
     writeFileSync(join(testData, 'application.log'), rpc.log);
     await rpc.close().catch(error => console.error(error));
   }
