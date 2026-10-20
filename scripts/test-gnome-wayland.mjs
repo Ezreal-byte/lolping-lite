@@ -1,7 +1,7 @@
 // Invoked only by test-gnome-wayland.py inside its private X server and D-Bus.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +27,10 @@ const reportPath = join(repository, 'dist/gnome-wayland-report.json');
 const logPath = join(testData, 'gnome-shell.log');
 const waylandDisplay = 'lolping-test-wayland';
 const checks = [];
+const inputEvents = [];
+const mappingSamples = [];
 let shell, rpc, inputClient;
+let passed = false;
 
 function command(program, args, allowFailure = false) {
   const result = spawnSync(program, args, { encoding: 'utf8', timeout: 15000 });
@@ -109,11 +112,38 @@ try {
   assert.equal(initial.connected, true);
   assert.ok(initial.settingsPid > 0, 'Native settings must remain usable on Wayland');
   checks.push('Packaged Rust controller and native settings start on Wayland without an X11 input helper');
+  const installedMetadata = join(process.env.XDG_DATA_HOME, 'gnome-shell/extensions', extensionUuid, 'metadata.json');
+  const metadataModified = statSync(installedMetadata).mtimeMs;
+  const installation = await rpc.request('wayland/install');
+  assert.equal(installation.ok, true);
+  assert.equal(installation.extensionId, extensionUuid);
+  assert.equal(installation.reloginRequired, false, 'An already-loaded identical extension must not request another login');
+  assert.equal(statSync(installedMetadata).mtimeMs, metadataModified, 'Identical extension files must not be rewritten');
+  checks.push('Installing an identical already-enabled extension succeeds without rewriting it or requesting another login');
+
+  async function sampleMappings(stage) {
+    const diagnostics = await rpc.request('diagnostics');
+    mappingSamples.push({ stage, presentedFrames: diagnostics.presentedFrames,
+      mappedFrameFiles: readFileSync(`/proc/${shell.pid}/maps`, 'utf8').split('\n').filter(line => line.includes('/lolping-lite-frames-')).length });
+    return diagnostics;
+  }
+  await sampleMappings('before-preview');
 
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });
   await rpc.poll('diagnostics', value => value.visibleWindows > 0 && value.surfaceBytes > 0 && value.presentedFrames > initial.presentedFrames);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   checks.push('Native signal frames are acknowledged by GNOME and cleared when the animation finishes');
+  for (let cycle = 0; cycle < 8; cycle++) {
+    const diagnostics = await sampleMappings(`preview-${cycle}`);
+    if (diagnostics.presentedFrames - initial.presentedFrames >= 100) break;
+    await rpc.request('preview', { id: 'missing', wheel: 'ping' });
+    await rpc.poll('diagnostics', value => value.visibleWindows > 0);
+    await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
+  }
+  const afterFrames = await sampleMappings('after-100-frames');
+  assert.ok(afterFrames.presentedFrames - initial.presentedFrames >= 100, 'The mapping observation must cover at least 100 acknowledged native frames');
+  assert.ok(mappingSamples.every(sample => sample.mappedFrameFiles === 0), 'GNOME must copy mutable frame bytes instead of retaining file mappings across animation frames');
+  checks.push('At least 100 acknowledged native animation frames leave zero retained frame-file mappings in GNOME Shell');
 
   const foreignClear = dbus('Clear', ['0'], true);
   assert.notEqual(foreignClear.status, 0, 'A different session-bus sender must not control the application overlay');
@@ -133,6 +163,17 @@ try {
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   checks.push('Real Super+Alt+Q input opens the wheel, moves its selection and releases to send');
 
+  await rpc.request('settings', { emoteTrigger: 'ctrl' });
+  privateInput('mousemove', '--window', windowId, '640', '480');
+  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'e');
+  await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
+  privateInput('mousemove', '--window', windowId, '525', '480');
+  await delay(150);
+  releaseKeys();
+  await rpc.poll('diagnostics', value => !value.wheelOpen);
+  await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
+  checks.push('With emotes enabled, real Super+Alt+E opens, selects and releases the emote wheel');
+
   privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen);
   privateInput('key', 'Escape');
@@ -140,7 +181,6 @@ try {
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
   checks.push('Escape cancels the Wayland wheel and releases its compositor input grab');
 
-  const inputEvents = [];
   inputClient = spawn('python3', [join(repository, 'scripts/test-gnome-input-client.py')], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, WAYLAND_DISPLAY: waylandDisplay, GDK_BACKEND: 'wayland' },
@@ -181,6 +221,21 @@ try {
   assert.equal(stopped.connected, false);
   assert.equal(stopped.visibleWindows, 0);
   assert.equal(stopped.surfaceBytes, 0);
+  await rpc.request('preview', { id: 'missing', wheel: 'ping' });
+  await rpc.poll('diagnostics', value => value.visibleWindows > 0);
+  await rpc.request('settings', { tickSound: false });
+  await keyCombo('p');
+  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await delay(250);
+  assert.equal((await rpc.request('diagnostics')).wheelOpen, false, 'Stopped preview settings must not register gesture shortcuts');
+  assert.equal((await rpc.request('state')).status.state, 'stopped');
+  releaseKeys();
+  const afterStoppedShortcut = inputEvents.length;
+  privateInput('key', 'a', 'click', '1');
+  await until(() => inputEvents.slice(afterStoppedShortcut).some(event => event.type === 'key' && event.key === 'a') &&
+    inputEvents.slice(afterStoppedShortcut).some(event => event.type === 'release' && event.button === 1),
+  'Stopped preview settings left an invisible modal input grab');
+  checks.push('A stopped preview followed by settings changes and P/Q shortcuts leaves ordinary Wayland input usable');
   await rpc.request('start');
   await rpc.request('preview', { id: 'missing', wheel: 'ping' });
   await rpc.poll('diagnostics', value => value.visibleWindows > 0);
@@ -196,14 +251,23 @@ try {
   await rpc.close();
   mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, JSON.stringify({ platform: 'Ubuntu 24.04 / GNOME 46 Wayland', passed: true,
-    environment: 'Private nested GNOME compositor on Xvfb; not physical-desktop acceptance', checks }, null, 2) + '\n');
+    environment: 'Private nested GNOME compositor on Xvfb; not physical-desktop acceptance', checks, mappingSamples }, null, 2) + '\n');
+  passed = true;
   console.log(JSON.stringify({ passed: true, checks, report: reportPath }, null, 2));
 } finally {
   releaseKeys();
+  writeFileSync(join(testData, 'input-events.json'), JSON.stringify(inputEvents, null, 2) + '\n');
+  writeFileSync(join(testData, 'mapping-samples.json'), JSON.stringify(mappingSamples, null, 2) + '\n');
   if (inputClient && inputClient.exitCode === null) inputClient.kill('SIGTERM');
   if (rpc) {
     writeFileSync(join(testData, 'application.log'), rpc.log);
     await rpc.close().catch(error => console.error(error));
   }
   await finishShell();
+  if (!passed) {
+    for (const name of ['gnome-shell.log', 'application.log', 'input-client.log']) {
+      const path = join(testData, name);
+      if (existsSync(path)) console.error(`${name} (tail):\n${readFileSync(path, 'utf8').slice(-12000)}`);
+    }
+  }
 }

@@ -16,10 +16,11 @@ parser.add_argument("regular", type=pathlib.Path)
 parser.add_argument("medium", type=pathlib.Path)
 args = parser.parse_args()
 paths = {
-    root / "backend/src/ui.rs",
     root / "backend/src/ui/strings.json",
     root / "resources/catalog.json",
-    *list((root / "backend/src/ui").rglob("*.rs")),
+    # Runtime errors (for example GNOME extension installation) are shown by
+    # the settings UI too; cover the application's own Rust sources, not deps.
+    *list((root / "backend/src").rglob("*.rs")),
 }
 text = "".join(path.read_text(encoding="utf-8") for path in sorted(paths))
 text += "".join(chr(cp) for cp in range(32, 256))

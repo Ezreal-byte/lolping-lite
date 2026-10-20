@@ -130,7 +130,7 @@ jobs:
       - name: Install private GNOME compositor test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-shell gnome-shell-common gnome-session-bin gsettings-desktop-schemas xwayland xvfb xauth xdotool dbus-x11 python3-gi gir1.2-gtk-3.0 libgtk-3-0t64 libasound2t64 libayatana-appindicator3-1 libxkbcommon-x11-0 libegl1 libgl1-mesa-dri
+          sudo apt-get install -y --no-install-recommends gnome-shell gnome-shell-common gnome-session-bin gsettings-desktop-schemas xwayland xvfb xauth xdotool dbus-x11 python3-gi gir1.2-gtk-3.0 ripgrep libgtk-3-0t64 libasound2t64 libayatana-appindicator3-1 libxkbcommon-x11-0 libegl1 libgl1-mesa-dri
           gnome-shell --version
       - uses: actions/download-artifact@v4
         with:
@@ -139,7 +139,7 @@ jobs:
       - name: Extract the verified AppImage without FUSE or system installation
         shell: bash
         run: |
-          mapfile -t images < <(rg --files .cache/gnome-wayland-artifacts -g '*.AppImage')
+          mapfile -t images < <(rg --files --hidden --no-ignore .cache/gnome-wayland-artifacts -g '*.AppImage')
           test "${#images[@]}" -eq 1
           image="$GITHUB_WORKSPACE/${images[0]}"
           chmod +x "$image"
@@ -153,12 +153,15 @@ jobs:
         with:
           name: lolping-lite-gnome46-wayland-report
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 14
           path: |
             dist/gnome-wayland-report.json
             .test-data/gnome-wayland-*/gnome-shell.log
             .test-data/gnome-wayland-*/application.log
             .test-data/gnome-wayland-*/input-client.log
+            .test-data/gnome-wayland-*/input-events.json
+            .test-data/gnome-wayland-*/mapping-samples.json
 
   release-ready:
     name: All three native builds passed

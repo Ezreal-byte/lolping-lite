@@ -8,7 +8,11 @@ use std::{
     sync::mpsc,
 };
 
-const CACHE_SIZE: usize = 48;
+// 44 bundled + 24 custom emotes + 12 pings + the brand = 81 legal images.
+// Keep the entire legal visible set resident on large displays. A smaller cap
+// makes completed decodes evict still-visible images and repaint forever.
+// 96 * 128 * 128 * 4 = 6 MiB worst-case RGBA; entries remain lazily populated.
+const CACHE_SIZE: usize = 96;
 const IN_FLIGHT: usize = 8;
 const UPLOADS_PER_PASS: usize = 2;
 const MAX_ENCODED_BYTES: usize = 2 * 1024 * 1024;
@@ -47,6 +51,10 @@ pub(super) struct Cache {
 }
 
 impl Cache {
+    #[cfg(test)]
+    pub fn counts(&self) -> (usize, usize) {
+        (self.entries.len(), self.pending.len())
+    }
     fn touch(&mut self, id: &str) {
         if let Some(index) = self.recent.iter().position(|item| item == id) {
             self.recent.remove(index);
@@ -234,6 +242,34 @@ mod tests {
             );
         }
         assert!(texture.size().iter().all(|side| *side <= 128));
+    }
+
+    #[test]
+    fn complete_legal_library_fits_without_visible_thumbnail_eviction() {
+        let legal_images = crate::settings::catalog().as_array().unwrap().len()
+            + 24
+            + crate::settings::PINGS.len()
+            + 1;
+        assert!(
+            legal_images <= CACHE_SIZE,
+            "Increase the bounded cache with the supported library size, or pin visible images"
+        );
+        let ctx = egui::Context::default();
+        let mut cache = Cache::default();
+        for index in 0..legal_images {
+            cache.request(&ctx, &format!("item-{index}"), || Source::Embedded(PNG));
+            finish(&mut cache, &ctx);
+        }
+        for _ in 0..100 {
+            for index in 0..legal_images {
+                assert!(cache
+                    .request(&ctx, &format!("item-{index}"), || panic!(
+                        "visible texture evicted"
+                    ))
+                    .is_some());
+            }
+        }
+        assert_eq!(cache.counts(), (legal_images, 0));
     }
 
     #[test]

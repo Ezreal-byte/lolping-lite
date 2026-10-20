@@ -77,6 +77,22 @@ export function validateFrame(value, monitors) {
     return {...value, bytes};
 }
 
+export function readFramePixels(path, expectedBytes, readContents) {
+    if (!Number.isInteger(expectedBytes) || expectedBytes < 4 || expectedBytes > MAX_FRAME_BYTES)
+        throw new Error('Invalid native overlay byte length');
+    let result;
+    try {
+        result = readContents(path);
+    } catch (error) {
+        throw new Error(`Cannot read the native overlay frame: ${error.message ?? error}`);
+    }
+    if (!Array.isArray(result) || result[0] !== true || !(result[1] instanceof Uint8Array))
+        throw new Error('Cannot read the native overlay frame as pixel bytes');
+    if (result[1].byteLength !== expectedBytes)
+        throw new Error('Frame file changed while being read');
+    return result[1];
+}
+
 export function validateConfiguration(value) {
     for (const key of ['enabled', 'suspended', 'emotesEnabled']) {
         if (typeof value[key] !== 'boolean')

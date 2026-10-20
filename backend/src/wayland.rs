@@ -13,6 +13,7 @@ use crate::{
 };
 use gtk::{
     gio,
+    gio::prelude::{SettingsExt, SettingsExtManual},
     glib::{self, variant::ToVariant},
 };
 use serde_json::{json, Value};
@@ -373,14 +374,17 @@ impl Engine {
         }
     }
     fn sync(&self) -> Result<(), String> {
-        if let Some(bridge) = &self.bridge {
-            bridge.config(
-                self.running && self.enabled,
-                self.suspend_until.is_some(),
-                self.settings["emoteTrigger"] != "off",
-            )?;
-        }
         if self.running {
+            // A stopped app may connect solely to preview an image. Configure
+            // also installs the pause shortcut, which must not turn such a
+            // preview-only Shell session into an invisible input grab.
+            if let Some(bridge) = &self.bridge {
+                bridge.config(
+                    self.enabled,
+                    self.suspend_until.is_some(),
+                    self.settings["emoteTrigger"] != "off",
+                )?;
+            }
             self.shared.status_with_pause(
                 "running",
                 self.enabled && self.suspend_until.is_none() && self.desktop_available,
@@ -438,9 +442,6 @@ impl Engine {
         match method {
             "lolping/start" => {
                 self.ensure()?;
-                if !self.desktop_available {
-                    return Err("desktopUnavailable: close the GNOME overview or unlock the desktop before previewing".into());
-                }
                 self.running = true;
                 self.enabled = true;
                 self.preview_until = None;
@@ -485,6 +486,9 @@ impl Engine {
                     return Err("invalidPing".into());
                 }
                 self.ensure()?;
+                if !self.desktop_available {
+                    return Err("desktopUnavailable: close the GNOME overview or unlock the desktop before previewing".into());
+                }
                 if !self.running {
                     self.preview_until = Some(Instant::now() + Duration::from_secs(10));
                 }
@@ -701,9 +705,9 @@ impl Engine {
             overlay.scene.draw(pixels, bounds, monitor.scale, now);
             let file = bridge.frames.write(monitor.id, pixels)?;
             let message = json!({"monitor":monitor.id,"x":monitor.x as f64+bounds.x as f64/monitor.scale,"y":monitor.y as f64+bounds.y as f64/monitor.scale,"width":bounds.w,"height":bounds.h,"scale":monitor.scale,"file":file});
-            // Shell only uploads the mapped bytes and replies; it never waits for
+            // Shell reads and uploads the pixel bytes and replies; it never waits for
             // Rust. One frame in flight and a bounded timeout prevent queues or
-            // reuse of the mapping before the compositor has copied its pixels.
+            // reuse of the private file before the compositor has copied its pixels.
             bridge.call("Present", &(message.to_string(),).to_variant())?;
             self.presented_frames += 1;
             overlay.visible = true;
@@ -808,6 +812,7 @@ pub fn install_extension(root: &Path) -> Result<Value, String> {
         .join("gnome-shell/extensions")
         .join(EXTENSION_ID);
     let replacing = destination.join("metadata.json").exists();
+    let mut changed = false;
     // Do not follow an existing user-created symlink when replacing our files.
     if destination
         .symlink_metadata()
@@ -825,7 +830,38 @@ pub fn install_extension(root: &Path) -> Result<Value, String> {
             return Err(format!("Refusing to overwrite symbolic link: {name}"));
         }
         let bytes = fs::read(source.join(name)).map_err(|e| e.to_string())?;
-        fs::write(to, bytes).map_err(|e| e.to_string())?;
+        if fs::read(&to).map_or(true, |previous| previous != bytes) {
+            changed = true;
+            fs::write(to, bytes).map_err(|e| e.to_string())?;
+        }
+    }
+    // Shell cannot enable a newly copied extension it has not discovered yet.
+    // Persist only our UUID so the user's requested installation is enabled
+    // after the next login; preserve every other extension and global switch.
+    let schema = gio::SettingsSchemaSource::default()
+        .and_then(|source| source.lookup("org.gnome.shell", true))
+        .ok_or("Cannot locate GNOME Shell settings; enable the installed extension after login")?;
+    let shell_settings = gio::Settings::new_full(&schema, gio::SettingsBackend::NONE, None);
+    let mut enabled_uuids = shell_settings.strv("enabled-extensions");
+    if !enabled_uuids.iter().any(|id| id.as_str() == EXTENSION_ID) {
+        enabled_uuids.push(EXTENSION_ID.into());
+        shell_settings
+            .set_strv("enabled-extensions", &enabled_uuids)
+            .map_err(|e| format!("Cannot enable the installed extension: {e}"))?;
+    }
+    let disabled_uuids = shell_settings.strv("disabled-extensions");
+    if disabled_uuids.iter().any(|id| id.as_str() == EXTENSION_ID) {
+        let filtered: Vec<_> = disabled_uuids
+            .iter()
+            .filter(|id| id.as_str() != EXTENSION_ID)
+            .collect();
+        shell_settings
+            .set_strv("disabled-extensions", filtered)
+            .map_err(|e| format!("Cannot enable the installed extension: {e}"))?;
+    }
+    gio::Settings::sync();
+    if shell_settings.boolean("disable-user-extensions") {
+        return Err("The extension is installed, but GNOME has disabled all user extensions. Turn on extensions in the GNOME Extensions application, then retry. / 扩展已安装，但 GNOME 已禁用全部用户扩展。请在系统扩展应用中打开扩展总开关后重试。".into());
     }
     let enabled = connection
         .call_sync(
@@ -842,8 +878,9 @@ pub fn install_extension(root: &Path) -> Result<Value, String> {
         .ok()
         .and_then(|v| v.get::<(bool,)>())
         .is_some_and(|v| v.0);
-    // An already-loaded older module also requires a new login to use new code.
+    // Changed, already-loaded ES modules require a new login. Reinstalling
+    // identical files must not keep asking the user to log out forever.
     Ok(
-        json!({"ok":true,"reloginRequired":!enabled || replacing,"path":destination,"extensionId":EXTENSION_ID}),
+        json!({"ok":true,"reloginRequired":!enabled || (replacing && changed),"path":destination,"extensionId":EXTENSION_ID}),
     )
 }

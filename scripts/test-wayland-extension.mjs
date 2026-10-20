@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {
     BUS_NAME, OBJECT_PATH, INTERFACE, MAX_FRAME_BYTES, SHORTCUTS,
     parseMessage, validateDirectory, validatePrivateFile, validateFrame,
-    validateConfiguration, validateRuntime, BridgeSession, Gesture, DesktopSession,
+    validateConfiguration, validateRuntime, readFramePixels, BridgeSession, Gesture, DesktopSession,
 } from '../native/gnome-extension/lolping-lite@ezreal-byte.github.io/protocol.js';
 
 const runtime = '/run/user/1000';
@@ -101,6 +101,25 @@ test('configuration uses booleans and ignores unrelated fields', () => {
         for (const invalid of [undefined, null, 1, 'true'])
             assert.throws(() => validateConfiguration({...config, [key]: invalid}));
     }
+});
+
+test('frame reads require exact typed pixel bytes and expose file errors without retaining mappings', () => {
+    const pixels = new Uint8Array([0, 0, 0, 0, 64, 32, 16, 128]);
+    const read = path => {
+        assert.equal(path, `${directory}/frame-0.rgba`);
+        return [true, pixels];
+    };
+    assert.equal(readFramePixels(`${directory}/frame-0.rgba`, 8, read), pixels);
+    for (const result of [null, [], [false, pixels], [true, null], [true, 'pixels'],
+        [true, [...pixels]], [true, new Uint32Array(2)]])
+        assert.throws(() => readFramePixels('frame', 8, () => result), /Cannot read/);
+    for (const size of [0, 4, 12])
+        assert.throws(() => readFramePixels('frame', 8, () => [true, new Uint8Array(size)]), /changed while being read/);
+    assert.throws(() => readFramePixels('frame', 8, () => {
+        throw new Error('Permission denied');
+    }), /Cannot read the native overlay frame: Permission denied/);
+    for (const size of [0, -1, 1.5, NaN, Infinity, MAX_FRAME_BYTES + 1])
+        assert.throws(() => readFramePixels('frame', size, () => assert.fail('invalid size must not read a file')), /Invalid native/);
 });
 
 test('unique session owner is required for every operation and cannot be replaced', () => {

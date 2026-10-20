@@ -11,7 +11,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {
     BUS_NAME, OBJECT_PATH, INTERFACE, SHORTCUTS, BridgeSession, Gesture, DesktopSession,
-    parseMessage, validateDirectory, validatePrivateFile, validateFrame, validateRuntime,
+    parseMessage, validateDirectory, validatePrivateFile, validateFrame, validateRuntime, readFramePixels,
 } from './protocol.js';
 
 const XML = `<node><interface name="${INTERFACE}">
@@ -189,16 +189,16 @@ class Bridge {
             validatePrivateFile(info, this._uid);
             if (info.size !== frame.bytes)
                 throw new Error('Frame file length does not match its dimensions');
-            const mapped = GLib.MappedFile.new(path, false);
-            if (mapped.get_length() !== frame.bytes)
-                throw new Error('Frame file changed while being opened');
+            const pixels = readFramePixels(path, frame.bytes, filename => GLib.file_get_contents(filename));
             let entry = this._frames.get(frame.monitor);
             const content = entry?.content ?? new St.ImageContent();
-            // GNOME 46 inherits Clutter.Image.set_bytes: upload copies the bytes
-            // into texture memory without retaining them. Returning this method
-            // acknowledges that the caller may safely rewrite its private file.
+            // GJS accounts for this Uint8Array's full allocation. Per-frame
+            // MappedFile/GBytes wrappers would retain mappings until GC, and
+            // retaining GBytes while Rust rewrites its data breaks immutability.
+            // GNOME 46 set_data copies into texture memory before returning, so
+            // this reply acknowledges that Rust may rewrite its private file.
             // https://gitlab.gnome.org/GNOME/mutter/-/blob/gnome-46/clutter/clutter/clutter-image.c
-            if (!content.set_bytes(mapped.get_bytes(), Cogl.PixelFormat.RGBA_8888_PRE,
+            if (!content.set_data(pixels, Cogl.PixelFormat.RGBA_8888_PRE,
                 frame.width, frame.height, frame.width * 4))
                 throw new Error('Cannot upload the native overlay frame');
             if (!entry) {

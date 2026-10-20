@@ -271,8 +271,8 @@ pub fn show(
                 );
                     }
                     ui.add_space(if compact { 6.0 } else { 16.0 });
-                    // At most four partially-visible rows of eight tiles plus nine
-                    // wheel textures fit inside the shared 48-texture cache.
+                    // Only visible tiles request textures. The bounded shared
+                    // cache also covers the complete legal library on huge screens.
                     let count = if compact && !emotes && items.len() == 12 {
                         if ui.available_width() >= 960.0 {
                             12

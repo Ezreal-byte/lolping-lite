@@ -19,9 +19,11 @@ See `../../backend/resources/README.md` for the original URL and SHA-256.
 | Regular | [Sans2.004 Regular](https://github.com/notofonts/noto-cjk/blob/Sans2.004/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) | `2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b` |
 | Medium | [Sans2.004 Medium](https://github.com/notofonts/noto-cjk/blob/Sans2.004/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Medium.otf) | `ca094f6b0001fb048ca39ddd797a0cdb0179e1e55c6561e111c49c3e6a61d7b7` |
 
-The subset includes characters found recursively in `backend/src/ui/**/*.rs`,
-`backend/src/ui.rs`, `backend/src/ui/strings.json`, `resources/catalog.json`,
-Latin-1 and common UI punctuation. A system CJK font supplies additional
+The subset includes characters found recursively in `backend/src/**/*.rs`,
+`backend/src/ui/strings.json`, `resources/catalog.json`, Latin-1 and common UI
+punctuation. This includes application errors displayed by settings, such as
+GNOME extension installation messages; third-party dependency sources are not
+scanned. A system CJK font supplies additional
 characters for user-imported emote names; it does not override bundled labels.
 
 To regenerate, install `fonttools==4.61.1` for Python 3.12, download the two

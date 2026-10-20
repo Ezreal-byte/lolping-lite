@@ -1,0 +1,57 @@
+{
+  "scope": "Three alternating runs per mode, same release test executable, 300 measured resizes + 20 cold frames per page, 68 synthetic emote entries; CPU layout+tessellation only. Excludes OpenGL/vsync/compositor. Sync mode uses same cache with synchronous decode to isolate UI decode scheduling.",
+  "rows": [
+    {
+      "page": "Trigger",
+      "sync": {
+        "medianMs": 0.32880000000000004,
+        "p95Ms": 0.53,
+        "coldFirstMs": 4.6354
+      },
+      "async": {
+        "medianMs": 0.3194,
+        "p95Ms": 0.5761,
+        "coldFirstMs": 4.4632
+      }
+    },
+    {
+      "page": "Sound",
+      "sync": {
+        "medianMs": 0.3612,
+        "p95Ms": 0.6033,
+        "coldFirstMs": 8.905100000000001
+      },
+      "async": {
+        "medianMs": 0.3583,
+        "p95Ms": 0.6116,
+        "coldFirstMs": 3.5079
+      }
+    },
+    {
+      "page": "Wheel",
+      "sync": {
+        "medianMs": 0.39120000000000005,
+        "p95Ms": 0.661,
+        "coldFirstMs": 9.8316
+      },
+      "async": {
+        "medianMs": 0.42250000000000004,
+        "p95Ms": 0.6916,
+        "coldFirstMs": 5.0415
+      }
+    },
+    {
+      "page": "Emotes",
+      "sync": {
+        "medianMs": 1.408,
+        "p95Ms": 2.4518,
+        "coldFirstMs": 5.1918
+      },
+      "async": {
+        "medianMs": 1.4161,
+        "p95Ms": 2.5528,
+        "coldFirstMs": 4.9502
+      }
+    }
+  ]
+}

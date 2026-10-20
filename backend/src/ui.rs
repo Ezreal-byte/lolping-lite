@@ -831,6 +831,75 @@ mod tests {
     }
 
     #[test]
+    fn oversized_window_keeps_all_visible_emotes_resident_after_warmup() {
+        use base64::Engine;
+        let (mut app, _) = test_app();
+        let thumbnail = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD
+                .encode(include_bytes!("../../resources/emotes/bee_happy.png"))
+        );
+        let library_count = crate::settings::catalog().as_array().unwrap().len() + 24;
+        app.state["emotes"] = Value::Array(
+            (0..library_count)
+                .map(|i| {
+                    json!({
+                        "id": format!("test-emote-{i}"), "name": format!("Emote {i}"),
+                        "thumbnail": thumbnail, "custom": i >= 44,
+                    })
+                })
+                .collect(),
+        );
+        let expected = library_count + crate::settings::PINGS.len() + 1;
+        let ctx = egui::Context::default();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        app.page = pages::Page::Emotes;
+        loop {
+            for id in crate::settings::PINGS {
+                app.texture(&ctx, &format!("ping-{id}"), ping_icon(id));
+            }
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::new(3840.0, 2560.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| app.draw_settings(ui),
+            );
+            output.textures_delta.clear();
+            if app.textures.counts() == (expected, 0) {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "whole library never became resident: {:?}",
+                app.textures.counts()
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        for frame in 0..100 {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        Vec2::new(3840.0 - (frame % 300) as f32, 2560.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| app.draw_settings(ui),
+            );
+            output.textures_delta.clear();
+            assert_eq!(
+                app.textures.counts(),
+                (expected, 0),
+                "resize restarted decoding"
+            );
+        }
+    }
+
+    #[test]
     #[ignore = "opt-in CPU-only resize benchmark; creates no native window"]
     fn resize_layout_cpu_profile() {
         use base64::Engine;
