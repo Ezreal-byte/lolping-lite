@@ -7,6 +7,7 @@ if os.environ.get("LOLPING_PRIVATE_GNOME") != "1" or os.environ.get("GDK_BACKEND
     raise SystemExit("Run only inside the isolated GNOME Wayland test")
 import gi
 gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GLib, Gtk
 
 

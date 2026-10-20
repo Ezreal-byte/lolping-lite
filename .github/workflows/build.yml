@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      linux_artifact_run_id:
+        description: 'Optional: rerun GNOME tests against a previously built Linux artifact from this repository'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -14,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.linux_artifact_run_id == '' }}
     name: ${{ matrix.target }}
     timeout-minutes: 60
     strategy:
@@ -118,6 +124,10 @@ jobs:
   gnome-wayland:
     name: Ubuntu 24.04 GNOME 46 Wayland integration
     needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.linux_artifact_run_id != '')) }}
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -136,6 +146,8 @@ jobs:
         with:
           name: lolping-lite-linux-x64
           path: .cache/gnome-wayland-artifacts
+          run-id: ${{ inputs.linux_artifact_run_id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Extract the verified AppImage without FUSE or system installation
         shell: bash
         run: |
@@ -146,6 +158,11 @@ jobs:
           mkdir -p .cache/gnome-wayland-appimage
           cd .cache/gnome-wayland-appimage
           "$image" --appimage-extract > extract.log
+      - name: Verify artifact source commit and test-only differences
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOLPING_ARTIFACT_RUN_ID: ${{ inputs.linux_artifact_run_id || github.run_id }}
+        run: node scripts/verify-reused-linux-build.mjs .cache/gnome-wayland-artifacts .cache/gnome-wayland-appimage/squashfs-root/usr/share/lolping-lite
       - name: Real GNOME Wayland bridge, native settings and private-seat gesture smoke
         run: python3 scripts/test-gnome-wayland.py --root .cache/gnome-wayland-appimage/squashfs-root/usr/share/lolping-lite --executable .cache/gnome-wayland-appimage/squashfs-root/AppRun
       - uses: actions/upload-artifact@v4
@@ -157,6 +174,7 @@ jobs:
           retention-days: 14
           path: |
             dist/gnome-wayland-report.json
+            dist/gnome-source-verification.json
             .test-data/gnome-wayland-*/gnome-shell.log
             .test-data/gnome-wayland-*/application.log
             .test-data/gnome-wayland-*/input-client.log

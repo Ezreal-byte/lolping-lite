@@ -57,7 +57,7 @@ function privateInput(...args) {
 }
 async function capture(name) {
   // Allow the acknowledged texture to reach the compositor's next frame.
-  await delay(100);
+  await delay(name === 'signal' ? 600 : 100);
   const result = spawnSync('python3', [join(repository, 'scripts/capture-private-gnome.py'), name], {
     encoding: 'utf8', timeout: 15000, env: { ...process.env, GDK_BACKEND: 'x11' },
   });
@@ -318,7 +318,8 @@ try {
 
   await rpc.close();
   mkdirSync(dirname(reportPath), { recursive: true });
-  writeFileSync(reportPath, JSON.stringify({ platform: 'Ubuntu 24.04 / GNOME 46 Wayland', passed: true,
+  const source = JSON.parse(readFileSync(join(repository, 'dist/gnome-source-verification.json'), 'utf8'));
+  writeFileSync(reportPath, JSON.stringify({ platform: 'Ubuntu 24.04 / GNOME 46 Wayland', passed: true, ...source,
     environment: 'Private nested GNOME compositor on Xvfb; not physical-desktop acceptance', checks, mappingSamples }, null, 2) + '\n');
   passed = true;
   console.log(JSON.stringify({ passed: true, checks, report: reportPath }, null, 2));
