@@ -33,7 +33,7 @@ for (const artifact of metadata.artifacts) {
 const testCommit = command('git', ['rev-parse', 'HEAD']);
 if (run.head_sha !== testCommit) command('git', ['fetch', '--no-tags', '--depth=1', 'origin', run.head_sha]);
 const changedFiles = command('git', ['diff', '--name-only', run.head_sha, testCommit]).split('\n').filter(Boolean);
-const testOnly = /^(\.github\/workflows\/build\.yml|scripts\/(test-gnome-(input-client\.py|wayland\.(mjs|py))|capture-private-gnome\.py|diagnose-linux-egl\.py|verify-reused-linux-build\.mjs)|docs\/resize-wayland-validation\.md)$/;
+const testOnly = /^(\.github\/workflows\/build\.yml|scripts\/(test-gnome-(input-client\.py|wayland\.(mjs|py))|gnome-private-seat\.py|capture-private-gnome\.py|diagnose-linux-egl\.py|verify-reused-linux-build\.mjs)|docs\/resize-wayland-validation\.md)$/;
 assert.deepEqual(changedFiles.filter(path => !testOnly.test(path)), [], 'Reused artifacts cannot validate changed product source');
 const report = { artifactRunId: runId, sourceCommit: run.head_sha, testCommit,
   reused: run.head_sha !== testCommit, changedFiles, target: info.target, hashesVerified: true };

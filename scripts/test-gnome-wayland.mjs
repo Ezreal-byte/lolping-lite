@@ -1,4 +1,4 @@
-// Invoked only by test-gnome-wayland.py inside its private X server and D-Bus.
+// Invoked only by test-gnome-wayland.py inside native-headless GNOME and private D-Bus.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -12,6 +12,8 @@ import { BUS_NAME, OBJECT_PATH, INTERFACE } from '../native/gnome-extension/lolp
 
 assert.equal(process.platform, 'linux');
 assert.equal(process.env.LOLPING_PRIVATE_GNOME, '1', 'Use the isolated GNOME launcher, never the login desktop');
+assert.equal(process.env.LOLPING_GNOME_HEADLESS, '1');
+assert.equal(process.env.DISPLAY, undefined, 'Native-headless acceptance must not use X11');
 assert.ok(process.env.DBUS_SESSION_BUS_ADDRESS, 'The private D-Bus session must be running');
 assert.ok(process.env.LOLPING_GNOME_TEST_DATA && process.env.XDG_RUNTIME_DIR);
 const repository = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -31,7 +33,9 @@ const inputEvents = [];
 const mappingSamples = [];
 const keyboardSamples = [];
 const keyboardModifiers = 1 | 4 | 8 | 64 | (1 << 26); // Shift, Ctrl, Alt, Mod4, Super
-let shell, rpc, inputClient;
+let shell, rpc, inputClient, seat, seatReady, seatError;
+let seatSequence = 0;
+const seatRequests = new Map();
 let passed = false;
 
 function command(program, args, allowFailure = false) {
@@ -53,35 +57,59 @@ async function until(fn, reason, milliseconds = 30000) {
   } while (Date.now() < deadline);
   throw Error(`${reason}; see ${logPath}`);
 }
-function privateInput(...args) {
-  assert.equal(process.env.LOLPING_PRIVATE_GNOME, '1');
-  return command('xdotool', args);
+async function seatRequest(command, params = {}) {
+  if (seatError) throw seatError;
+  assert.ok(seat && seat.exitCode === null, 'Private compositor input driver must be running');
+  const id = ++seatSequence;
+  return new Promise((resolveRequest, reject) => {
+    const timer = setTimeout(() => { seatRequests.delete(id); reject(Error(`Private seat ${command} timed out`)); }, 10000);
+    seatRequests.set(id, { resolve: resolveRequest, reject, timer });
+    seat.stdin.write(`${JSON.stringify({ id, command, ...params })}\n`);
+  });
+}
+async function privateInput(...args) {
+  // All events go through Mutter's own virtual input device on this private
+  // compositor, without XTest or a production shortcut/gesture bypass.
+  for (let i = 0; i < args.length; i += 2) {
+    const action = args[i], value = args[i + 1];
+    if (['keydown', 'keyup', 'key'].includes(action)) {
+      await seatRequest('key', { key: value, pressed: action !== 'keyup' });
+      if (action === 'key') await seatRequest('key', { key: value, pressed: false });
+    } else if (['mousedown', 'mouseup', 'click'].includes(action)) {
+      await seatRequest('button', { button: Number(value), pressed: action !== 'mouseup' });
+      if (action === 'click') await seatRequest('button', { button: Number(value), pressed: false });
+    } else throw Error(`Unexpected private input action ${action}`);
+  }
+}
+async function movePointer(x, y) {
+  // Relative motion needs no screencast stream; clamp to the virtual monitor's
+  // origin first, then move to the same test coordinates on the real seat.
+  await seatRequest('move', { dx: -10000, dy: -10000 });
+  await seatRequest('move', { dx: x, dy: y });
 }
 async function capture(name) {
   // Allow the acknowledged texture to reach the compositor's next frame.
   await delay(name === 'signal' ? 600 : 100);
-  const result = spawnSync('python3', [join(repository, 'scripts/capture-private-gnome.py'), name], {
-    encoding: 'utf8', timeout: 15000, env: { ...process.env, GDK_BACKEND: 'x11' },
-  });
-  assert.equal(result.status, 0, `Private screenshot: ${result.error ?? result.stderr}`);
-  console.log(result.stdout.trim());
+  console.log(`Private compositor screenshot: ${JSON.stringify(await seatRequest('screenshot', { name }))}`);
 }
-function releaseKeys() {
-  command('xdotool', ['keyup', 'q', 'e', 'p', 'Escape', 'Alt_L', 'Super_L'], true);
+async function releaseKeys() {
+  if (!seatReady || seat?.exitCode !== null) return;
+  for (const key of ['q', 'e', 'p', 'Escape', 'Alt_L', 'Super_L'])
+    await seatRequest('key', { key, pressed: false });
 }
 async function sampleKeyboard(stage) {
-  const outer = JSON.parse(command('python3', [join(repository, 'scripts/test-gnome-input-client.py'), '--outer-state']).stdout);
+  const injected = await seatRequest('state');
   const firstEvent = inputEvents.length;
-  privateInput('key', 'a');
+  await privateInput('key', 'a');
   const letter = await until(() => inputEvents.slice(firstEvent).find(event => event.type === 'key' && event.key === 'a'),
     `The focused Wayland client did not receive a (${stage})`);
-  const sample = { stage, outer, clientModifiers: letter.state };
+  const sample = { stage, injected, clientModifiers: letter.state };
   keyboardSamples.push(sample);
   console.log(`Private keyboard state: ${JSON.stringify(sample)}`);
   return sample;
 }
 async function keyCombo(key) {
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'key', key, 'keyup', 'Alt_L', 'keyup', 'Super_L');
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'key', key, 'keyup', 'Alt_L', 'keyup', 'Super_L');
   await delay(100);
 }
 async function finishShell() {
@@ -96,7 +124,7 @@ try {
   command('gsettings', ['set', 'org.gnome.shell', 'disable-user-extensions', 'false']);
   command('gsettings', ['set', 'org.gnome.desktop.interface', 'enable-animations', 'false']);
   command('gsettings', ['set', 'org.gnome.shell', 'welcome-dialog-last-shown-version', '46.0'], true);
-  shell = spawn('gnome-shell', ['--nested', '--wayland', `--wayland-display=${waylandDisplay}`], {
+  shell = spawn('gnome-shell', ['--headless', '--wayland', '--no-x11', '--virtual-monitor=1280x960', `--wayland-display=${waylandDisplay}`], {
     stdio: ['ignore', 'pipe', 'pipe'], env: process.env,
   });
   for (const stream of [shell.stdout, shell.stderr]) stream.on('data', bytes => appendFileSync(logPath, bytes));
@@ -104,20 +132,35 @@ try {
   await until(() => existsSync(join(process.env.XDG_RUNTIME_DIR, waylandDisplay)), 'GNOME Wayland display did not appear');
   await until(() => command('gdbus', ['introspect', '--session', '--dest', BUS_NAME, '--object-path', OBJECT_PATH], true).status === 0,
     'Bundled GNOME extension did not export its bridge');
-  checks.push('GNOME 46 loads the bundled extension on a real nested Wayland compositor');
-
-  const windowId = await until(() => {
-    const candidates = command('xdotool', ['search', '--onlyvisible', '--pid', String(shell.pid)], true).stdout.trim().split('\n').filter(Boolean);
-    const windows = candidates.map(id => {
-      const result = command('xdotool', ['getwindowgeometry', '--shell', id], true);
-      const geometry = Object.fromEntries(result.stdout.trim().split('\n').map(line => line.split('=')));
-      return { id, area: Number(geometry.WIDTH) * Number(geometry.HEIGHT) };
-    }).filter(window => window.area >= 640 * 480).sort((a, b) => b.area - a.area);
-    return windows[0]?.id;
-  }, 'Cannot find the private nested compositor window');
-  privateInput('windowfocus', '--sync', windowId);
-  privateInput('mousemove', '--window', windowId, '640', '480');
-  privateInput('key', 'Escape');
+  checks.push('GNOME 46 loads the bundled extension on a real native-headless Wayland compositor');
+  await until(() => command('gdbus', ['introspect', '--session', '--dest', 'org.gnome.Shell.Screenshot',
+    '--object-path', '/org/gnome/Shell/Screenshot'], true).status === 0, 'Private compositor screenshot service did not start');
+  seat = spawn('python3', [join(repository, 'scripts/gnome-private-seat.py')], { stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
+  createInterface({ input: seat.stdout, crlfDelay: Infinity }).on('line', line => {
+    const reply = JSON.parse(line);
+    if (reply.event === 'ready') { seatReady = reply; return; }
+    if (reply.event === 'fatal') { seatError = Error(reply.error); return; }
+    const pending = seatRequests.get(reply.id);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    seatRequests.delete(reply.id);
+    if (reply.ok) pending.resolve(reply.result);
+    else pending.reject(Error(reply.error));
+  });
+  seat.stderr.on('data', bytes => appendFileSync(join(testData, 'private-seat.log'), bytes));
+  seat.once('error', error => { seatError = error; });
+  seat.once('exit', code => {
+    for (const pending of seatRequests.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(Error(`Private input driver exited (${code}): ${seatError ?? 'see private-seat.log'}`));
+    }
+    seatRequests.clear();
+  });
+  await until(() => { if (seatError) throw seatError; return seatReady; }, 'Private native virtual seat did not start');
+  assert.equal(seatReady.backend, 'native-headless');
+  assert.equal(seatReady.shellPid, shell.pid);
+  await movePointer(640, 480);
+  await privateInput('key', 'Escape');
   await delay(600);
 
   for (const bundled of [false, true]) {
@@ -210,26 +253,25 @@ try {
   await until(() => inputEvents.find(event => event.type === 'ready'), 'The native Wayland input client did not open');
   assert.match(inputEvents.find(event => event.type === 'ready').displayType, /Wayland/);
   await delay(400);
-  privateInput('mousemove', '--window', windowId, '640', '480', 'click', '1');
+  await movePointer(640, 480);
+  await privateInput('click', '1');
   await until(() => inputEvents.some(event => event.type === 'release'), 'Click must focus the real Wayland client before baseline input');
   const initialKeyboard = await sampleKeyboard('before-any-modal');
   assert.equal(initialKeyboard.clientModifiers & keyboardModifiers, 0, 'Initial client keyboard baseline must be clear');
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L');
-  releaseKeys();
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L');
+  await releaseKeys();
   const baseline = await sampleKeyboard('shortcut-modifiers-without-wheel');
   assert.equal(baseline.clientModifiers & keyboardModifiers, 0, 'Super/Alt without a wheel must release normally');
   checks.push('A focused real Wayland client receives unmodified input before any modal wheel, including after plain Super/Alt press and release');
 
-  // XTest input goes solely to the private outer Xvfb window, then traverses
-  // the real Mutter Wayland seat. This does not bypass the production bridge.
-  privateInput('windowfocus', '--sync', windowId);
-  privateInput('mousemove', '--window', windowId, '640', '480');
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  // Exercise Mutter's native Wayland seat and the production extension.
+  await movePointer(640, 480);
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
   await capture('wheel');
-  privateInput('mousemove', '--window', windowId, '755', '480');
+  await movePointer(755, 480);
   await delay(150);
-  releaseKeys();
+  await releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await assertRunning('After Q wheel release');
@@ -237,54 +279,54 @@ try {
   checks.push('Real Super+Alt+Q input opens the wheel, moves its selection and releases to send');
 
   await rpc.request('settings', { emoteTrigger: 'ctrl' });
-  privateInput('mousemove', '--window', windowId, '640', '480');
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'e');
+  await movePointer(640, 480);
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'e');
   await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
-  privateInput('mousemove', '--window', windowId, '525', '480');
+  await movePointer(525, 480);
   await delay(150);
-  releaseKeys();
+  await releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen);
   await rpc.poll('diagnostics', value => value.visibleWindows === 0, 20000);
   await assertRunning('After E wheel release');
   await sampleKeyboard('after-E-release');
   checks.push('With emotes enabled, real Super+Alt+E opens, selects and releases the emote wheel');
 
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen);
-  privateInput('key', 'Escape');
-  releaseKeys();
+  await privateInput('key', 'Escape');
+  await releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
   await assertRunning('After Escape cancellation');
   await sampleKeyboard('after-Escape-cancel');
   checks.push('Escape cancels the Wayland wheel and releases its compositor input grab');
 
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
   const watchdogStarted = Date.now();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0, 20000);
   assert.ok(Date.now() - watchdogStarted >= 13000, 'The held wheel must reach the 15-second watchdog, not close from an accidental key release');
   await assertRunning('After held-wheel watchdog cancellation');
-  releaseKeys();
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await releaseKeys();
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen && value.visibleWindows > 0);
-  privateInput('key', 'Escape');
-  releaseKeys();
+  await privateInput('key', 'Escape');
+  await releaseKeys();
   await rpc.poll('diagnostics', value => !value.wheelOpen && value.visibleWindows === 0);
   await assertRunning('After reopening following watchdog cancellation');
   await sampleKeyboard('after-watchdog-and-reopen');
   checks.push('Holding Q reaches the 15-second safety cancellation without stopping the application; the next wheel still opens and cancels normally');
 
-  privateInput('mousemove', '--window', windowId, '640', '480');
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await movePointer(640, 480);
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await rpc.poll('diagnostics', value => value.wheelOpen);
-  privateInput('mousemove', '--window', windowId, '755', '480');
-  privateInput('mousedown', '1', 'mouseup', '1');
+  await movePointer(755, 480);
+  await privateInput('mousedown', '1', 'mouseup', '1');
   await rpc.poll('diagnostics', value => !value.wheelOpen);
-  releaseKeys();
+  await releaseKeys();
   await assertRunning('After left-click confirmation');
   await sampleKeyboard('after-left-click-confirmation');
   const afterConfirmation = inputEvents.length;
-  privateInput('key', 'a', 'click', '1');
+  await privateInput('key', 'a', 'click', '1');
   await until(() => inputEvents.slice(afterConfirmation).some(event => event.type === 'key' && event.key === 'a') &&
     inputEvents.slice(afterConfirmation).some(event => event.type === 'release' && event.button === 1),
   'Keyboard or pointer input remained captured after click confirmation');
@@ -309,13 +351,13 @@ try {
   await rpc.poll('diagnostics', value => value.visibleWindows > 0);
   await rpc.request('settings', { tickSound: false });
   await keyCombo('p');
-  privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
+  await privateInput('keydown', 'Super_L', 'keydown', 'Alt_L', 'keydown', 'q');
   await delay(250);
   assert.equal((await rpc.request('diagnostics')).wheelOpen, false, 'Stopped preview settings must not register gesture shortcuts');
   assert.equal((await rpc.request('state')).status.state, 'stopped');
-  releaseKeys();
+  await releaseKeys();
   const afterStoppedShortcut = inputEvents.length;
-  privateInput('key', 'a', 'click', '1');
+  await privateInput('key', 'a', 'click', '1');
   await until(() => inputEvents.slice(afterStoppedShortcut).some(event => event.type === 'key' && event.key === 'a') &&
     inputEvents.slice(afterStoppedShortcut).some(event => event.type === 'release' && event.button === 1),
   'Stopped preview settings left an invisible modal input grab');
@@ -352,11 +394,11 @@ try {
   mkdirSync(dirname(reportPath), { recursive: true });
   const source = JSON.parse(readFileSync(join(repository, 'dist/gnome-source-verification.json'), 'utf8'));
   writeFileSync(reportPath, JSON.stringify({ platform: 'Ubuntu 24.04 / GNOME 46 Wayland', passed: true, ...source,
-    environment: 'Private nested GNOME compositor on Xvfb; not physical-desktop acceptance', checks, mappingSamples }, null, 2) + '\n');
+    environment: 'Private native-headless GNOME Wayland compositor with a virtual input seat; not physical-desktop acceptance', checks, mappingSamples, keyboardSamples }, null, 2) + '\n');
   passed = true;
   console.log(JSON.stringify({ passed: true, checks, report: reportPath }, null, 2));
 } finally {
-  releaseKeys();
+  await releaseKeys().catch(error => console.error(error));
   writeFileSync(join(testData, 'input-events.json'), JSON.stringify(inputEvents, null, 2) + '\n');
   writeFileSync(join(testData, 'mapping-samples.json'), JSON.stringify(mappingSamples, null, 2) + '\n');
   writeFileSync(join(testData, 'keyboard-samples.json'), JSON.stringify(keyboardSamples, null, 2) + '\n');
@@ -373,9 +415,15 @@ try {
     writeFileSync(join(testData, 'application.log'), rpc.log);
     await rpc.close().catch(error => console.error(error));
   }
+  if (seat && seat.exitCode === null) {
+    await seatRequest('quit').catch(error => console.error(error));
+    seat.stdin.end();
+    await Promise.race([new Promise(resolveExit => seat.once('exit', resolveExit)), delay(3000)]);
+    if (seat.exitCode === null) seat.kill('SIGTERM');
+  }
   await finishShell();
   if (!passed) {
-    for (const name of ['gnome-shell.log', 'application.log', 'input-client.log', 'egl-loader.log']) {
+    for (const name of ['gnome-shell.log', 'application.log', 'input-client.log', 'private-seat.log', 'egl-loader.log']) {
       const path = join(testData, name);
       if (existsSync(path)) console.error(`${name} (tail):\n${readFileSync(path, 'utf8').slice(-12000)}`);
     }
