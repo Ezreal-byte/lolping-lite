@@ -306,9 +306,7 @@ pub fn show(
                                             zh,
                                             compact,
                                         );
-                                        if item.texture.is_none()
-                                            && ui.is_rect_visible(tile_image_rect(response.rect))
-                                        {
+                                        if ui.is_rect_visible(tile_image_rect(response.rect)) {
                                             request_texture(&mut actions, &item.id);
                                         }
                                         if response.gained_focus() {

@@ -5,6 +5,7 @@ import { unzipSync } from 'fflate';
 import { root, version, target, hash, resetGenerated, executableArchitecture, run, write } from './common.mjs';
 import { peImports, isVisualCppRuntime } from './pe-imports.mjs';
 import { diskImage } from './disk-image.mjs';
+import { extensionRelativeDirectory, readExtension, verifyExtensionArchive, isExtensionScript } from './gnome-extension.mjs';
 
 const dist = join(root, 'dist');
 const metadata = JSON.parse(readFileSync(join(dist, `${target}.artifact.json`), 'utf8'));
@@ -24,6 +25,11 @@ for (const artifact of metadata.artifacts) {
     assert.equal(Object.keys(contents).length, 106);
     for (const [key, expected] of Object.entries(pack.files)) { assert.equal(hash(contents[key]), expected.sha256, key); assert.equal(contents[key].length, expected.size, key); }
     checks.push('35 optional emotes: every indexed source hash verified');
+  } else if (artifact.kind === 'gnome-extension') {
+    const contents = verifyExtensionArchive(bytes);
+    const source = readExtension(join(root, 'native', extensionRelativeDirectory));
+    for (const [name, expected] of Object.entries(source)) assert.deepEqual(Buffer.from(contents[name]), expected, name);
+    checks.push('GNOME 46 extension ZIP: exact compositor files, UUID, version and source bytes verified');
   } else if (artifact.kind === 'portable') {
     const contents = unzipSync(bytes);
     verifyContents(contents, '');
@@ -100,7 +106,15 @@ function verifyTree(base, manifestPath, dataPrefix, binPrefix) {
   for (const [key, expected] of Object.entries(assets.files)) assert.equal(hash(readFileSync(join(base, dataPrefix, 'ui', key))), expected.sha256, key);
   assert.equal(executableArchitecture(join(base, binPrefix, 'lolping-lite')), process.arch);
   assert.equal(executableArchitecture(join(base, binPrefix, 'hook-helper')), process.arch);
-  for (const key of Object.keys(manifest.files)) assert.ok(!/\.(html?|m?js|css|map|pdb)$/i.test(key), key);
+  for (const key of Object.keys(manifest.files)) {
+    const shellScript = process.platform === 'linux' && isExtensionScript(key, dataPrefix);
+    assert.ok(shellScript || !/\.(html?|m?js|css|map|pdb)$/i.test(key), key);
+  }
+  if (process.platform === 'linux') {
+    const installed = readExtension(join(base, dataPrefix, extensionRelativeDirectory));
+    const source = readExtension(join(root, 'native', extensionRelativeDirectory));
+    for (const [name, expected] of Object.entries(source)) assert.deepEqual(installed[name], expected, name);
+  }
 }
 const report = { version, target, passed: true, checks, artifacts: metadata.artifacts, desktopValidation: 'See standalone-smoke and platform regression reports; package integrity is not a full desktop acceptance test.' };
 write(join(dist, `${target}-package-report.json`), JSON.stringify(report, null, 2) + '\n');

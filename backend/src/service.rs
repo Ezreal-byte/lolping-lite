@@ -95,7 +95,7 @@ impl Shared {
     }
     pub fn snapshot(&self) -> Value {
         let store = self.store.lock().unwrap();
-        json!({"status":self.status.lock().unwrap().clone(),"settings":store.settings,"emotes":assets::library(&self.root,&self.data,&store.settings["customEmotes"]),"platform":if cfg!(target_os="macos"){"mac"}else if cfg!(target_os="linux"){"linux"}else{"win"},"locale":sys_locale::get_locale().unwrap_or_else(||"en".into()),"version":env!("CARGO_PKG_VERSION"),"preferences":self.preferences.lock().unwrap().clone(),"extraPackInstalled":assets::pack_dir(&self.data).is_dir()})
+        json!({"status":self.status.lock().unwrap().clone(),"settings":store.settings,"emotes":assets::library(&self.root,&self.data,&store.settings["customEmotes"]),"platform":if cfg!(target_os="macos"){"mac"}else if cfg!(target_os="linux"){"linux"}else{"win"},"linuxSession":crate::platform::session_info(),"locale":sys_locale::get_locale().unwrap_or_else(||"en".into()),"version":env!("CARGO_PKG_VERSION"),"preferences":self.preferences.lock().unwrap().clone(),"extraPackInstalled":assets::pack_dir(&self.data).is_dir()})
     }
 }
 #[derive(Clone)]
@@ -129,6 +129,8 @@ impl Handler {
         let method = method.strip_prefix("lolping/").unwrap_or(method);
         match method {
             "state" => Ok(self.shared.snapshot()),
+            #[cfg(target_os = "linux")]
+            "wayland/install" => crate::wayland::install_extension(&self.shared.root),
             "ui/ready" => {
                 self.shared.emit("ui/ready", json!({"ok":true}));
                 Ok(json!({"ok":true}))

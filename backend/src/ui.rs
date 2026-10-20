@@ -3,7 +3,7 @@
 use eframe::egui::{self, Color32, Vec2};
 use serde_json::{json, Map, Value};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     io::{BufRead, Write},
     sync::{mpsc, OnceLock},
     time::{Duration, Instant},
@@ -12,6 +12,8 @@ use std::{
 mod design;
 mod keys;
 mod pages;
+mod resize_trace;
+mod thumbnails;
 mod wheel_editor;
 
 fn strings() -> &'static Value {
@@ -75,8 +77,7 @@ struct App {
     ui_frames: u8,
     theme: String,
     title: String,
-    textures: HashMap<String, egui::TextureHandle>,
-    texture_order: VecDeque<String>,
+    textures: thumbnails::Cache,
     search: String,
     page: pages::Page,
     emote_page: bool,
@@ -84,6 +85,7 @@ struct App {
     emote_editor: wheel_editor::EditorState,
     preview_ping: String,
     test_exit: Option<Instant>,
+    resize_trace: Option<resize_trace::Trace>,
 }
 
 impl App {
@@ -153,8 +155,7 @@ impl App {
             ui_frames: 0,
             theme: String::new(),
             title: String::new(),
-            textures: HashMap::new(),
-            texture_order: VecDeque::new(),
+            textures: thumbnails::Cache::default(),
             search: String::new(),
             page: pages::Page::default(),
             emote_page: false,
@@ -165,6 +166,7 @@ impl App {
                 .ok()
                 .and_then(|v| v.parse::<u64>().ok())
                 .map(|ms| Instant::now() + Duration::from_millis(ms)),
+            resize_trace: resize_trace::Trace::from_env(),
         };
         app.request("state", json!({}));
         app
@@ -185,6 +187,12 @@ impl App {
     }
     fn platform(&self) -> &str {
         self.state["platform"].as_str().unwrap_or("win")
+    }
+    fn wayland(&self) -> bool {
+        self.platform() == "linux" && self.state["linuxSession"]["wayland"] == true
+    }
+    fn gnome_wayland(&self) -> bool {
+        self.wayland() && self.state["linuxSession"]["desktop"] == "gnome"
     }
     fn t(&self, key: &str) -> &'static str {
         tr(self.zh(), key)
@@ -362,6 +370,15 @@ impl App {
                         }
                         "settings" => self.apply_settings(result.clone()),
                         "preferences" => self.state["preferences"] = result.clone(),
+                        "wayland/install" => {
+                            self.hint = self
+                                .t(if result["reloginRequired"] == true {
+                                    "waylandRelogin"
+                                } else {
+                                    "waylandInstalled"
+                                })
+                                .into();
+                        }
                         "suspend" if p.params["on"] == true => {
                             if let Some(capture) = &mut self.capture {
                                 capture.armed = true;
@@ -496,31 +513,10 @@ impl App {
         &mut self,
         ctx: &egui::Context,
         id: &str,
-        bytes: &[u8],
+        bytes: &'static [u8],
     ) -> Option<egui::TextureHandle> {
-        if let Some(texture) = self.textures.get(id) {
-            return Some(texture.clone());
-        }
-        let image = image::load_from_memory(bytes)
-            .ok()?
-            .thumbnail(128, 128)
-            .to_rgba8();
-        let size = [image.width() as usize, image.height() as usize];
-        let texture = ctx.load_texture(
-            id,
-            egui::ColorImage::from_rgba_unmultiplied(size, &image),
-            egui::TextureOptions::LINEAR,
-        );
-        while self.textures.len() >= 48 {
-            if let Some(old) = self.texture_order.pop_front() {
-                self.textures.remove(&old);
-            } else {
-                break;
-            }
-        }
-        self.texture_order.push_back(id.into());
-        self.textures.insert(id.into(), texture.clone());
-        Some(texture)
+        self.textures
+            .request(ctx, id, || thumbnails::Source::Embedded(bytes))
     }
     fn dialog(&mut self, ctx: &egui::Context) {
         if self.capture.is_some() {
@@ -645,7 +641,8 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.title.clone()));
         }
     }
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let sampled_at = self.resize_trace.as_ref().map(|_| Instant::now());
         let ctx = ui.ctx().clone();
         if self.close_allowed {
             return;
@@ -662,6 +659,13 @@ impl eframe::App for App {
             } else {
                 ctx.request_repaint();
             }
+        }
+        if let (Some(trace), Some(started)) = (&mut self.resize_trace, sampled_at) {
+            trace.record(
+                ctx.content_rect().size(),
+                frame.info().cpu_usage,
+                started.elapsed().as_secs_f64() * 1000.0,
+            );
         }
     }
 }
@@ -712,13 +716,16 @@ pub fn run() -> Result<(), String> {
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
     }
-    let options = eframe::NativeOptions {
+    let mut options = eframe::NativeOptions {
         viewport,
         renderer: eframe::Renderer::Glow,
         persist_window: false,
         centered: true,
         ..Default::default()
     };
+    if let Ok(value) = std::env::var("LOLPING_UI_TEST_VSYNC") {
+        options.glow_options.vsync = value != "0";
+    }
     eframe::run_native(
         "LOLPing Lite · Settings",
         options,
@@ -730,6 +737,171 @@ pub fn run() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn visible_text(app: &mut App) -> String {
+        fn text(shape: &egui::Shape, output: &mut String) {
+            match shape {
+                egui::Shape::Text(shape) => {
+                    output.push_str(shape.galley.text());
+                    output.push('\n');
+                }
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        text(shape, output);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    Vec2::new(1120.0, 1600.0),
+                )),
+                ..Default::default()
+            },
+            |ui| app.draw_settings(ui),
+        );
+        let mut content = String::new();
+        for shape in &output.shapes {
+            text(&shape.shape, &mut content);
+        }
+        output.textures_delta.clear();
+        content
+    }
+
+    #[test]
+    fn wayland_uses_actual_shortcuts_and_preserves_existing_trigger_preferences() {
+        let (mut app, output) = test_app();
+        app.state["platform"] = json!("linux");
+        app.state["linuxSession"] = json!({"wayland":true,"desktop":"gnome"});
+        let original = app.state["settings"].clone();
+        for (page, shortcut, inactive) in [
+            (pages::Page::Trigger, "Super + Alt + Q", "Drag threshold"),
+            (pages::Page::Hotkey, "Super + Alt + P", "Record shortcut"),
+            (pages::Page::Emotes, "Super + Alt + E", "Click to emote"),
+        ] {
+            app.page = page;
+            app.emote_page = true;
+            let text = visible_text(&mut app);
+            assert!(text.contains(shortcut), "missing {shortcut}: {text}");
+            assert!(
+                !text.contains(inactive),
+                "inactive control still shown: {inactive}"
+            );
+            assert!(text.contains("Install / enable GNOME extension"));
+        }
+        assert_eq!(app.state["settings"], original);
+        assert!(app.dirty.is_empty());
+        assert!(output.try_recv().is_err());
+        app.state["linuxSession"]["wayland"] = json!(false);
+        app.page = pages::Page::Trigger;
+        assert!(visible_text(&mut app).contains("Drag threshold"));
+    }
+
+    #[test]
+    fn other_wayland_desktops_do_not_offer_incompatible_extension_installation() {
+        let (mut app, _) = test_app();
+        app.state["platform"] = json!("linux");
+        app.state["linuxSession"] = json!({"wayland":true,"desktop":"kde"});
+        let text = visible_text(&mut app);
+        assert!(text.contains("Other Wayland desktops are not supported yet"));
+        assert!(!text.contains("Install / enable GNOME extension"));
+    }
+
+    #[test]
+    fn extension_install_reply_explains_when_a_new_login_is_required() {
+        for relogin in [false, true] {
+            let (mut app, output) = test_app();
+            app.act("wayland/install", json!({}));
+            let request = output.recv().unwrap();
+            app.local
+                .send(Incoming::Message(json!({
+                    "id": request["id"], "result": {"ok":true,"reloginRequired":relogin}
+                })))
+                .unwrap();
+            app.messages(&egui::Context::default());
+            assert!(app.error.is_empty());
+            assert!(app
+                .hint
+                .contains(if relogin { "Sign out" } else { "Retry start" }));
+        }
+    }
+
+    #[test]
+    #[ignore = "opt-in CPU-only resize benchmark; creates no native window"]
+    fn resize_layout_cpu_profile() {
+        use base64::Engine;
+        let mut report = Vec::new();
+        let thumbnail = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD
+                .encode(include_bytes!("../../resources/emotes/bee_happy.png"))
+        );
+        for page in [
+            pages::Page::Trigger,
+            pages::Page::Sound,
+            pages::Page::Wheel,
+            pages::Page::Emotes,
+        ] {
+            let (mut app, _) = test_app();
+            app.textures.synchronous =
+                std::env::var("LOLPING_UI_TEST_SYNC_THUMBNAILS").as_deref() == Ok("1");
+            app.page = page;
+            app.state["emotes"] = Value::Array(
+                (0..68)
+                    .map(|index| {
+                        json!({
+                            "id": format!("test-emote-{index}"),
+                            "name": format!("Test emote {index}"), "thumbnail": thumbnail,
+                            "custom": index >= 44,
+                        })
+                    })
+                    .collect(),
+            );
+            let ctx = egui::Context::default();
+            design::install(&ctx);
+            let mut samples = Vec::new();
+            let mut cold = Vec::new();
+            for frame in 0..320 {
+                let size = Vec2::new(
+                    760.0 + ((frame * 13) % 601) as f32,
+                    560.0 + ((frame * 7) % 401) as f32,
+                );
+                let input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+                    time: Some(frame as f64 / 60.0),
+                    ..Default::default()
+                };
+                let started = Instant::now();
+                let mut output = ctx.run_ui(input, |ui| app.draw_settings(ui));
+                std::hint::black_box(ctx.tessellate(output.shapes, output.pixels_per_point));
+                output.textures_delta.clear();
+                let elapsed = started.elapsed().as_secs_f64() * 1000.0;
+                if frame < 20 {
+                    cold.push(elapsed);
+                } else {
+                    samples.push(elapsed);
+                }
+                // Let asynchronous decode progress without counting worker time
+                // or sleep in UI CPU measurements. No window / display is opened.
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            samples.sort_by(f64::total_cmp);
+            report.push(json!({"page": format!("{page:?}"),
+                "frames": samples.len(), "medianMs": samples[samples.len()/2],
+                "p95Ms": samples[samples.len()*95/100],
+                "maxMs": samples.last(), "coldFramesMs": cold,
+            }));
+        }
+        let report = json!({"scope":"CPU UI layout + tessellation; excludes OpenGL, vsync, OS event loop and presentation", "pages": report});
+        eprintln!("{}", serde_json::to_string_pretty(&report).unwrap());
+        if let Some(path) = std::env::var_os("LOLPING_UI_TEST_CPU_REPORT") {
+            std::fs::write(path, serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+        }
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
@@ -1048,8 +1220,7 @@ mod tests {
                 ui_frames: 0,
                 theme: String::new(),
                 title: String::new(),
-                textures: HashMap::new(),
-                texture_order: VecDeque::new(),
+                textures: thumbnails::Cache::default(),
                 search: String::new(),
                 page: pages::Page::default(),
                 emote_page: false,
@@ -1057,6 +1228,7 @@ mod tests {
                 emote_editor: wheel_editor::EditorState::default(),
                 preview_ping: "missing".into(),
                 test_exit: None,
+                resize_trace: None,
             },
             output,
         )

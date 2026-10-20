@@ -1,5 +1,18 @@
 //! Desktop capabilities shared by the native controller and overlay.
 
+pub fn is_wayland() -> bool {
+    cfg!(target_os = "linux")
+        && (std::env::var("XDG_SESSION_TYPE").is_ok_and(|v| v.eq_ignore_ascii_case("wayland"))
+            || std::env::var("WAYLAND_DISPLAY").is_ok_and(|v| !v.is_empty()))
+}
+
+pub fn session_info() -> serde_json::Value {
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP")
+        .unwrap_or_default()
+        .to_lowercase();
+    serde_json::json!({"wayland":is_wayland(),"desktop":if desktop.split(':').any(|p|p=="gnome"||p=="ubuntu"){"gnome"}else{desktop.as_str()},"extensionId":"lolping-lite@ezreal-byte.github.io"})
+}
+
 /// A login session must provide desktop-wide X11 input. Running GTK through
 /// XWayland is insufficient: native Wayland applications cannot be observed.
 pub fn global_input_available() -> Result<(), String> {

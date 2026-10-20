@@ -440,24 +440,26 @@ async function main() {
       results.push('Linux without a tray opens visible controls; duplicate launch reuses them and closing exits cleanly');
 
       // A usable X11 DISPLAY inside a Wayland login is XWayland, not evidence
-      // of desktop-wide input access. Simulate that session on our isolated X
-      // server so native startup, settings availability and rejection are tested.
+      // of desktop-wide input access. Without the explicit GNOME extension the
+      // app must retain usable settings and give an actionable setup error.
+      // Positive integration runs separately inside the real GNOME compositor.
       const wayland = new Rpc(root, data, executable, {
-        production: true, env: { XDG_SESSION_TYPE: 'wayland' },
+        production: true, env: { XDG_SESSION_TYPE: 'wayland', XDG_CURRENT_DESKTOP: 'GNOME' },
       });
       try {
         await wayland.waitFor(event => event.event === 'ui/ready', 30000);
         const unsupported = await wayland.poll('state', value => value.status.state === 'failed');
         assert.equal(unsupported.status.enabled, false);
-        assert.match(unsupported.status.error, /X11.*Wayland/s);
-        await assert.rejects(wayland.request('start'), /X11.*Wayland/s);
-        await assert.rejects(wayland.request('preview', { id: 'missing', wheel: 'ping' }), /X11.*Wayland/s);
+        assert.match(unsupported.status.error, /GNOME.*(extension|扩展)/is);
+        assert.match(unsupported.status.error, /extension|enable|安装|启用/i);
+        await assert.rejects(wayland.request('start'), /GNOME.*(extension|扩展)/is);
+        await assert.rejects(wayland.request('preview', { id: 'missing', wheel: 'ping' }), /GNOME.*(extension|扩展)/is);
         const diagnostics = await wayland.request('diagnostics');
         assert.ok(diagnostics.settingsPid > 0, 'unsupported sessions must retain accessible settings');
         assert.equal(diagnostics.helperPid, null, 'Wayland must never start an X11 input helper');
         assert.equal(diagnostics.windows, 0, 'Wayland must never create misleading partial overlays');
       } finally { await wayland.close(); }
-      results.push('Wayland login with an X11 DISPLAY is rejected before helper/overlay creation while native settings remain accessible');
+      results.push('Wayland without its GNOME extension gives an actionable setup error, retains settings and never starts an X11 helper or partial overlay');
     }
     mkdirSync(dirname(reportPath), { recursive: true });
     const report = { target, desktop, passed: results, skipped, at: new Date().toISOString(), dataDirectory: data };

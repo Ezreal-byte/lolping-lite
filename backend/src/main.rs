@@ -3,6 +3,7 @@ mod assets;
 mod audio;
 mod cache;
 mod desktop;
+mod desktop_backend;
 mod instance;
 mod links;
 mod native;
@@ -12,6 +13,10 @@ mod render;
 mod service;
 mod settings;
 mod ui;
+#[cfg(target_os = "linux")]
+mod wayland;
+#[cfg(any(target_os = "linux", test))]
+mod wayland_model;
 
 use native::UserEvent;
 use serde_json::{json, Value};
@@ -140,7 +145,7 @@ fn run() -> Result<(), String> {
     }
     let first = shared.preferences.lock().unwrap()["onboarded"] != true;
     let background = args.iter().any(|a| a == "--background");
-    let mut engine = native::Native::new(shared.clone(), proxy.clone());
+    let mut engine = desktop_backend::Backend::new(shared.clone(), proxy.clone());
     let mut started = false;
     let mut tray: Option<desktop::Tray> = None;
     let mut gui: Option<desktop::SettingsProcess> = None;
@@ -201,6 +206,8 @@ fn run() -> Result<(), String> {
             Event::UserEvent(UserEvent::Settings(s, library)) => engine.refresh(s, library),
             Event::UserEvent(UserEvent::Helper(id, v)) => engine.helper_event(id, v),
             Event::UserEvent(UserEvent::HelperGone(id)) => engine.helper_gone(id),
+            #[cfg(target_os = "linux")]
+            Event::UserEvent(UserEvent::Wayland(id, v)) => engine.wayland_event(id, v),
             Event::UserEvent(UserEvent::OpenSettings) => {
                 if quitting.is_none() {
                     if let Err(e) = open_gui(&mut gui, &mut generation) {

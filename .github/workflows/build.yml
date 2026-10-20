@@ -56,6 +56,8 @@ jobs:
           node -e "if (process.arch !== '${{ matrix.arch }}') throw Error('Unexpected runner architecture ' + process.arch)"
           rustc --version
       - run: npm ci --ignore-scripts
+      - name: GNOME extension protocol and package boundaries
+        run: node --test scripts/test-gnome-package.mjs scripts/test-wayland-extension.mjs
       - run: npm run build:resources
       - run: npm run test:helper
       - run: cargo test --locked
@@ -113,9 +115,54 @@ jobs:
             design-qa.md
             THIRD_PARTY_NOTICES.md
 
+  gnome-wayland:
+    name: Ubuntu 24.04 GNOME 46 Wayland integration
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.0'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install private GNOME compositor test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-shell gnome-shell-common gnome-session-bin gsettings-desktop-schemas xwayland xvfb xauth xdotool dbus-x11 python3-gi gir1.2-gtk-3.0 libgtk-3-0t64 libasound2t64 libayatana-appindicator3-1 libxkbcommon-x11-0 libegl1 libgl1-mesa-dri
+          gnome-shell --version
+      - uses: actions/download-artifact@v4
+        with:
+          name: lolping-lite-linux-x64
+          path: .cache/gnome-wayland-artifacts
+      - name: Extract the verified AppImage without FUSE or system installation
+        shell: bash
+        run: |
+          mapfile -t images < <(rg --files .cache/gnome-wayland-artifacts -g '*.AppImage')
+          test "${#images[@]}" -eq 1
+          image="$GITHUB_WORKSPACE/${images[0]}"
+          chmod +x "$image"
+          mkdir -p .cache/gnome-wayland-appimage
+          cd .cache/gnome-wayland-appimage
+          "$image" --appimage-extract > extract.log
+      - name: Real GNOME Wayland bridge, native settings and private-seat gesture smoke
+        run: python3 scripts/test-gnome-wayland.py --root .cache/gnome-wayland-appimage/squashfs-root/usr/share/lolping-lite --executable .cache/gnome-wayland-appimage/squashfs-root/AppRun
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lolping-lite-gnome46-wayland-report
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            dist/gnome-wayland-report.json
+            .test-data/gnome-wayland-*/gnome-shell.log
+            .test-data/gnome-wayland-*/application.log
+            .test-data/gnome-wayland-*/input-client.log
+
   release-ready:
     name: All three native builds passed
-    needs: build
+    needs: [build, gnome-wayland]
     runs-on: ubuntu-22.04
     steps:
-      - run: echo "All platform builds, tests and package verifications passed. Publish only these artifacts from this commit."
+      - run: echo "All platform builds, package verifications and isolated GNOME Wayland integration passed. Publish only these artifacts from this commit."

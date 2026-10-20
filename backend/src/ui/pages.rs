@@ -1,7 +1,7 @@
 //! Presentation-only state. Settings and input ownership stay in the parent.
 use super::{
     design::{self, Palette},
-    keys, ping_icon, tr, wheel_editor, App, Confirm,
+    keys, ping_icon, thumbnails, tr, wheel_editor, App, Confirm,
 };
 use eframe::egui::{self, Color32, RichText, Vec2};
 use serde_json::json;
@@ -204,6 +204,7 @@ fn action(ui: &mut egui::Ui, text: &str, primary: bool) -> egui::Response {
 
 impl App {
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {
+        self.textures.upload_ready(ui.ctx());
         let zh = self.zh();
         let p = Palette::of(ui);
         egui::Panel::top("settings-header")
@@ -526,15 +527,28 @@ impl App {
             }
             ui.add_space(14.0);
         }
-        if self.platform() == "linux"
-            && (self.state["wayland"] == true
-                || self.state["status"]["error"]
-                    .as_str()
-                    .unwrap_or("")
-                    .to_lowercase()
-                    .contains("wayland"))
-        {
-            ui.label(self.t("unsupported"));
+        if self.wayland() {
+            card(ui, |ui| {
+                ui.label(RichText::new("Wayland").font(design::font(17.0, true)));
+                ui.label(self.t(if self.gnome_wayland() {
+                    "waylandHelp"
+                } else {
+                    "unsupported"
+                }));
+                if self.gnome_wayland() {
+                    ui.add_space(8.0);
+                    ui.add_enabled_ui(!self.busy() && !self.closing, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            if ui.button(self.t("waylandInstall")).clicked() {
+                                self.act("wayland/install", json!({}));
+                            }
+                            if ui.button(self.t("waylandRetry")).clicked() {
+                                self.act("start", json!({}));
+                            }
+                        });
+                    });
+                }
+            });
             ui.add_space(14.0);
         }
     }
@@ -625,6 +639,19 @@ impl App {
     }
     fn trigger_page(&mut self, ui: &mut egui::Ui) {
         let zh = self.zh();
+        if self.wayland() {
+            card(ui, |ui| {
+                row(ui, copy(zh, "信号轮盘", "Ping wheel"), "", |ui| {
+                    ui.label(RichText::new("Super + Alt + Q").font(design::font(18.0, true)));
+                });
+                divider(ui);
+                row(ui, copy(zh, "表情轮盘", "Emote wheel"), "", |ui| {
+                    ui.label(RichText::new("Super + Alt + E").font(design::font(18.0, true)));
+                });
+                secondary(ui, self.t("waylandFixedKeys"));
+            });
+            return;
+        }
         section(ui, copy(zh, "手势触发", "Gesture controls"));
         card(ui, |ui| {
             self.trigger_row(
@@ -692,6 +719,15 @@ impl App {
     }
     fn hotkey_page(&mut self, ui: &mut egui::Ui) {
         let zh = self.zh();
+        if self.wayland() {
+            card(ui, |ui| {
+                row(ui, copy(zh, "暂停 / 恢复", "Pause / resume"), "", |ui| {
+                    ui.label(RichText::new("Super + Alt + P").font(design::font(22.0, true)));
+                });
+                secondary(ui, self.t("waylandFixedKeys"));
+            });
+            return;
+        }
         card(ui, |ui| {
             row(
                 ui,
@@ -884,23 +920,19 @@ impl App {
         });
     }
     fn emote_texture(&mut self, ctx: &egui::Context, id: &str) -> Option<egui::TextureHandle> {
-        use base64::Engine;
         if let Some(tex) = self.textures.get(id) {
-            return Some(tex.clone());
+            return Some(tex);
         }
         let source = self.state["emotes"]
             .as_array()?
             .iter()
             .find(|e| e["id"] == id)?["thumbnail"]
             .as_str()?;
-        let (_, data) = source.split_once(',')?;
-        if data.len() > 2 * 1024 * 1024 {
+        if source.len() > 2 * 1024 * 1024 + 64 {
             return None;
         }
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(data)
-            .ok()?;
-        self.texture(ctx, id, &bytes)
+        self.textures
+            .request(ctx, id, || thumbnails::Source::DataUri(source.into()))
     }
     fn wheel_page(&mut self, ui: &mut egui::Ui, emotes: bool) {
         let key = if emotes { "emoteWheel" } else { "wheel" };
@@ -927,7 +959,7 @@ impl App {
                     if wheel.contains(&id) || center == id {
                         self.emote_texture(ui.ctx(), &id).map(|t| t.id())
                     } else {
-                        self.textures.get(&id).map(|t| t.id())
+                        self.textures.peek(&id).map(|t| t.id())
                     }
                 } else {
                     self.texture(ui.ctx(), &format!("ping-{id}"), ping_icon(&id))
@@ -973,8 +1005,10 @@ impl App {
                 ),
                 wheel_editor::Action::Size(value) => self.patch("wheelSizePx", json!(value), true),
                 wheel_editor::Action::LoadTexture(id) => {
-                    if emotes && self.emote_texture(ui.ctx(), &id).is_some() {
-                        ui.ctx().request_repaint();
+                    if emotes {
+                        // Cached visible tiles refresh LRU order. Only the decode
+                        // worker requests a repaint; cache hits must remain idle.
+                        self.emote_texture(ui.ctx(), &id);
                     }
                 }
             }
@@ -993,27 +1027,52 @@ impl App {
         ui.add_space(16.0);
         if self.emote_page {
             card(ui, |ui| {
-                self.trigger_row(
-                    ui,
-                    "emoteTrigger",
-                    copy(zh, "表情触发键", "Emote trigger"),
-                    copy(
-                        zh,
-                        "按住并拖动鼠标，打开表情轮盘。",
-                        "Hold and drag to open the emote wheel.",
-                    ),
-                );
-                divider(ui);
-                self.switch_row(
-                    ui,
-                    "emoteClick",
-                    copy(zh, "单击发送表情", "Click to emote"),
-                    copy(
-                        zh,
-                        "按住触发键单击，发送中心表情。",
-                        "Trigger + click sends the center emote.",
-                    ),
-                );
+                if self.wayland() {
+                    let mut enabled = self.state["settings"]["emoteTrigger"] != "off";
+                    let label = copy(zh, "启用表情", "Enable emotes");
+                    row(ui, label, "Super + Alt + E", |ui| {
+                        if toggle(ui, &mut enabled, label).changed() {
+                            self.patch(
+                                "emoteTrigger",
+                                json!(if enabled { "ctrl" } else { "off" }),
+                                false,
+                            );
+                        }
+                    });
+                    divider(ui);
+                    row(
+                        ui,
+                        copy(zh, "表情触发键", "Emote trigger"),
+                        self.t("waylandFixedKeys"),
+                        |ui| {
+                            ui.label(
+                                RichText::new("Super + Alt + E").font(design::font(18.0, true)),
+                            );
+                        },
+                    );
+                } else {
+                    self.trigger_row(
+                        ui,
+                        "emoteTrigger",
+                        copy(zh, "表情触发键", "Emote trigger"),
+                        copy(
+                            zh,
+                            "按住并拖动鼠标，打开表情轮盘。",
+                            "Hold and drag to open the emote wheel.",
+                        ),
+                    );
+                    divider(ui);
+                    self.switch_row(
+                        ui,
+                        "emoteClick",
+                        copy(zh, "单击发送表情", "Click to emote"),
+                        copy(
+                            zh,
+                            "按住触发键单击，发送中心表情。",
+                            "Trigger + click sends the center emote.",
+                        ),
+                    );
+                }
                 divider(ui);
                 self.range_row(
                     ui,

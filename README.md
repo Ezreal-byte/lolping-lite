@@ -38,7 +38,7 @@ LOLPing Lite 是 [lolPing](https://github.com/darrenprx/lolPing) 的本地精简
 
 Windows 安装器尚未商业签名，macOS 使用 ad-hoc 签名、尚未公证。macOS 下载后按系统提示在“系统设置 → 隐私与安全性”允许打开，并给应用授予辅助功能权限。Linux AppImage 首次运行需添加可执行权限；AppImage 不自带显卡驱动。
 
-**Wayland 暂不支持全局手势。** 应用会明确提示，不会将 XWayland 局部能力当作完整支持。macOS 全屏空间和不同 Linux 桌面环境仍需真实设备验收；CI 通过不能替代这些检查。
+**开发分支新增 Ubuntu 24.04 / GNOME 46 Wayland 桥接。** 需要主动安装并启用随包提供的 GNOME Shell 扩展，使用 `Super + Alt + Q/E` 唤出信号／表情轮盘，移动后释放 Q/E 或点击确认；X11 保留原拖动手势。详情见 [Wayland 安装与操作](docs/wayland.md)。已发布的 v0.2.0 仍仅支持 X11 全局手势；KDE 等其他 Wayland 桌面尚未适配。macOS 全屏空间和 Linux 真实桌面仍需实机验收，CI 不替代这些检查。
 
 ## 使用
 

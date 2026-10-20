@@ -7,6 +7,7 @@ import { tool } from './tools.mjs';
 import { buildExtraEmotes } from './extra-emotes.mjs';
 import { writeRustNotices } from './license-notices.mjs';
 import { diskImage } from './disk-image.mjs';
+import { extensionUuid, extensionRelativeDirectory, readExtension, packExtension } from './gnome-extension.mjs';
 
 if (!target) throw Error(`Unsupported packaging host: ${process.platform}/${process.arch}`);
 const stageBase = resetGenerated(`.stage/${target}`, `.stage/${target}`);
@@ -61,7 +62,9 @@ if (process.platform === 'darwin') {
   run('codesign', ['--verify', '--deep', '--strict', stage]);
 }
 if (process.platform === 'linux') {
-  const desktop = `[Desktop Entry]\nType=Application\nName=LOLPing Lite\nComment=Native desktop ping and emote wheel (X11)\nExec=lolping-lite\nIcon=lolping-lite\nTerminal=false\nCategories=Utility;\nStartupNotify=false\nX-AppImage-Version=${version}\n`;
+  const extension = readExtension(join(root, 'native/gnome-extension', extensionUuid));
+  for (const [name, bytes] of Object.entries(extension)) write(join(data, extensionRelativeDirectory, name), bytes);
+  const desktop = `[Desktop Entry]\nType=Application\nName=LOLPing Lite\nComment=Native desktop ping and emote wheel (X11 or GNOME 46 Wayland extension)\nExec=lolping-lite\nIcon=lolping-lite\nTerminal=false\nCategories=Utility;\nStartupNotify=false\nX-AppImage-Version=${version}\n`;
   write(join(stage, 'usr/share/applications/lolping-lite.desktop'), desktop);
   write(join(stage, 'lolping-lite.desktop'), desktop);
   // appimagetool preserves an existing regular .DirIcon, but creates a symlink
@@ -116,17 +119,20 @@ if (process.platform === 'win32') {
   const debRoot = ensure(join(stageBase, 'deb'));
   cpSync(join(stage, 'usr'), join(debRoot, 'usr'), { recursive: true });
   makeChecksums(debRoot, join(debRoot, 'usr/share/lolping-lite/checksums.json'));
-  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libxkbcommon-x11-0, libayatana-appindicator3-1, libgl1, libegl1\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Requires an X11 desktop with a compositor. Wayland gestures are unsupported.\n`);
+  write(join(debRoot, 'DEBIAN/control'), `Package: lolping-lite\nVersion: ${version}\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: Ezreal-byte <noreply@github.com>\nHomepage: https://github.com/Ezreal-byte/lolping-lite\nDepends: libc6 (>= 2.35), libgcc-s1, libstdc++6, libgtk-3-0, libasound2, libx11-6, libxi6, libxtst6, libxkbcommon-x11-0, libayatana-appindicator3-1, libgl1, libegl1\nSuggests: gnome-shell (>= 46), gnome-shell (<< 47)\nDescription: Native desktop ping and emote wheel\n Rust-native settings, transparent desktop effects, and local emotes.\n Supports X11 with a compositor. GNOME 46 Wayland requires the bundled\n LOLPing Lite extension to be installed and enabled by the user.\n`);
   const deb = join(dist, `${stem}.deb`);
   run('dpkg-deb', ['--root-owner-group', '--build', debRoot, deb]);
-  record(deb, { kind: 'debian', minimum: 'Ubuntu 22.04 / glibc 2.35; X11 + compositor' });
+  record(deb, { kind: 'debian', minimum: 'glibc 2.35; X11 + compositor, or GNOME 46 Wayland + enabled LOLPing Lite extension' });
   await import('./bundle-linux.mjs').then(m => m.bundleLinux(stage));
   makeChecksums(stage, checksumsPath);
   const image = join(dist, `${stem}.AppImage`);
   const appimagetool = await tool('appimagetool'), runtime = await tool('appimage-runtime');
   run(appimagetool, ['--appimage-extract-and-run', '--runtime-file', runtime, stage, image], { env: { ...process.env, ARCH: 'x86_64', SOURCE_DATE_EPOCH: '1577836800' } });
   chmodSync(image, 0o755);
-  record(image, { kind: 'appimage', minimum: 'glibc 2.35; X11 + compositor and system GL drivers' });
+  record(image, { kind: 'appimage', minimum: 'glibc 2.35 and system GL drivers; X11 + compositor, or GNOME 46 Wayland + enabled LOLPing Lite extension' });
+  const extensionZip = join(dist, `LOLPing-Lite-${version}-gnome46.shell-extension.zip`);
+  write(extensionZip, packExtension(readExtension(join(data, extensionRelativeDirectory))));
+  record(extensionZip, { kind: 'gnome-extension', uuid: extensionUuid, shellVersions: ['46'], activation: 'User-enabled; a new installation may require signing out and back in' });
 }
 
 record(pack, { kind: 'optional-emotes', emotes: 35 });

@@ -1,0 +1,8 @@
+{
+  "uuid": "lolping-lite@ezreal-byte.github.io",
+  "name": "LOLPing Lite Wayland Bridge",
+  "description": "Connects LOLPing Lite to GNOME Wayland. Super+Alt+Q opens the ping wheel, Super+Alt+E opens the emote wheel, and Super+Alt+P pauses or resumes. Requires the separately installed LOLPing Lite application. No screen capture or root access is used.",
+  "shell-version": ["46"],
+  "url": "https://github.com/Ezreal-byte/lolping-lite",
+  "version": 1
+}
