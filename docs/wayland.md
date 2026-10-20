@@ -54,4 +54,6 @@ Rust 在空闲、停止或正常退出时释放自身绘制缓冲与临时文件
 
 本次不把此前 Windows 的内存数字当作 Wayland 保证值。GNOME compositor 内的纹理也会占用资源，需要在真实 Ubuntu 设备上独立测量。
 
+当前 `wayland-preview` 是测试候选：三端构建／打包通过，Ubuntu 24.04 虚拟 GNOME 已显示超过 300 帧；普通输入基线未完成，完整集成工作流没有通过。软件渲染环境下 Shell RSS 在 308 帧后增长约 155 MiB，原因仍待定位，不能宣称内存稳定。用户将进行 Ubuntu 真机验收，测试时请同时观察 LOLPing Lite 与 GNOME Shell。详情与源提交见上述排查记录。
+
 官方机制参考：[GNOME Shell modal 与生命周期](https://github.com/GNOME/gnome-shell/blob/gnome-46/js/ui/main.js)、[GNOME Shell 快捷键与扩展 D-Bus](https://github.com/GNOME/gnome-shell/blob/gnome-46/js/ui/shellDBus.js)、[GNOME 扩展安装说明](https://gjs.guide/extensions/development/creating.html)。

@@ -6,7 +6,7 @@
 
 - Ubuntu 设置能够打开，但启动失败，原实现的 `global_input_available` 明确拒绝 Wayland/XWayland。只移除拒绝条件无法让 X11 helper 获得原生 Wayland 应用的全局输入，也无法让 X11 覆盖层变成 Wayland 原生覆盖层。
 - Linux 动画另外存在定时唤醒缺失：Tao 0.35 的 GTK `WaitUntil` 没有注册 GLib 定时源，在没有外部输入时会阻塞。GNOME 集成截图暴露了信号停在首帧的问题；先前定期查询 diagnostics 恰好推动了动画，不能作为自主播放的证据。新增单次 GLib 定时唤醒及“600 ms 内完全不发 RPC／输入、帧数仍增长”的集成断言；空闲仍按原 500 ms 周期等待，不使用忙轮询。修复仅编译到 Linux。
-- Ubuntu 24.04 仓库实际安装的 GJS `1.80.2-1build2` 存在 [incremental GC 错误](https://github.com/GNOME/gjs/commit/4e53510fbcf9472c4c1fa43661a7f409a012511d)。逐帧传递大 Uint8Array 时，嵌套和原生虚拟 GNOME 都复现了整个 Shell 的 JavaScript 回调被错误阻断，继而 Present 超时。实现改为原生 Cairo 解码无损 PNG、显式释放旧图像；CI 保留系统默认 GJS 和原有超时，通过持续至少 300 帧及普通输入断言验证，未用升级 CI 库或放宽断言代替兼容性修复。
+- Ubuntu 24.04 仓库实际安装的 GJS `1.80.2-1build2` 存在 [incremental GC 错误](https://github.com/GNOME/gjs/commit/4e53510fbcf9472c4c1fa43661a7f409a012511d)。逐帧传递大 Uint8Array 时，嵌套和原生虚拟 GNOME 都复现了整个 Shell 的 JavaScript 回调被错误阻断，继而 Present 超时。实现改为原生 Cairo 解码无损 PNG、显式释放旧图像；CI 保留系统默认 GJS 和原有超时，已持续显示超过 300 帧且没有再次出现该回调错误。普通输入基线未通过，不能将该轮 CI 写成完整输入验收。
 - Windows 设置的缩略图缓存缺失时原先在 UI 线程同步读取和解码，FIFO 缓存也不反映最近访问；拖边导致可见内容变化时会出现额外阻塞。新实现使用一个有界后台解码线程和 LRU 缓存，限制同时排队任务及每帧纹理上传。
 - eframe 0.37 在 Windows resize 回调中同步绘制。原始 944 次采样中有 218 次尺寸变化，eframe 中位耗时 5.75 ms、p95 8.85 ms；3 次约 2.4 秒的长帧占相邻采样间隔的 99.4%–99.8%。这段计时排除了交换缓冲和 OpenGL context 切换，仍需区分应用逻辑、绘制、驱动调用和平台输出。保留生产默认设置，添加仅测试用的帧记录与 vsync A/B 参数。
 - 已取得的原版拖边记录有长帧；随后桌面控制收到用户 Escape 停止信号，实机 A/B 未完成，不能据此宣传“拖边卡顿已完全消除”。之后只执行代码与非桌面验证。
@@ -32,10 +32,18 @@
 
 可用 `LOLPING_UI_TEST_RESIZE_TRACE=<JSON 路径>` 记录真实窗口帧：包含上一帧 eframe 耗时和当前次 UI 绘制耗时，关闭设置时写出文件；正常运行不采样、不写日志。`previousEframeMs` 属于前一呈现帧，不能减去同一行的 `currentUiMs`；后者不包含 `App::logic`，egui 还可能在一帧内执行多次 UI pass。`LOLPING_UI_TEST_VSYNC=0/1` 仅供对照诊断。复现离屏基准使用 `cargo test --release --locked resize_layout_cpu_profile -- --ignored --nocapture`，测试专用 `LOLPING_UI_TEST_SYNC_THUMBNAILS=1` 切换同步对照，`LOLPING_UI_TEST_CPU_REPORT` 指定输出文件。
 
-## 尚待完成
+## Wayland 编码与 CI 结果
 
 PNG 编码采用显式 `Compression::Fast`，保留无损质量。在本机 Windows / Core Ultra 5 125H 的 release 离屏测试中，各模式热身 3 次、采样 30 次：600×600 真实轮盘的默认 Balanced 编码中位数 22.60 ms、p95 27.95 ms，Fast 为 4.95 ms / 7.54 ms；400×400 信号的 Fast 为 1.48 ms / 2.76 ms。包含复制、反预乘、分配和压缩，不包含文件写入、Cairo 解码和合成，不能据此宣称端到端 60 FPS。[完整基准](wayland-png-encoding-benchmark.json)
 
-真实 GNOME 46 原生虚拟会话将在同提交 Linux CI 产物上验证启动、原生帧、组合快捷键、释放/取消、暂停恢复、断开清理以及未知 D-Bus 发送者拒绝。这里只在结果确认后登记通过项。
+测试包的产品提交为 `35d91e82421c169f5cf1700cbb721e5ec78db98d`，来自 [CI 39362386514](https://github.com/Ezreal-byte/lolping-lite/actions/runs/39362386514)。Windows、macOS、Linux 三个构建／打包任务通过，Linux X11 smoke 及解包后的 AppImage 运行检查通过。交付包核验了 CI 文件哈希、内嵌提交和扩展源码，未发布正式 Release。
 
-Windows 实际拖边 A/B、Ubuntu 实机多屏/缩放/全屏/锁屏仍需单独验收。
+Ubuntu 24.04 / GNOME 46 原生虚拟会话使用系统 GJS `1.80.2-1build2`，已确认启动、透明信号画面和连续 308 帧渲染；不发 RPC／输入的 600 ms 内帧数从 1 增至 41，确认动画不依赖外部事件唤醒。随后普通 GTK 窗口的点击基线超时，未完成本轮快捷键、释放、取消、暂停恢复和断开等后续集成步骤，因此整个工作流仍为失败，不能写成“全部 CI 通过”。输入注入问题尚未证实为产品问题。
+
+软件渲染虚拟环境中，`gnome-shell` RSS 从 255,232 KiB 增至 413,908 KiB（308 帧后约增加 155 MiB）。Cairo 原生图像释放路径已有源码核对，但 Shell 增长原因仍未确定，不能据此宣称内存稳定，也不能直接推断真实显卡环境的表现。后续评估须同时统计 LOLPing Lite 与 GNOME Shell，不能只记录 Rust 进程。
+
+用户选择自行进行 Ubuntu 真机验收；本轮停止扩展虚拟环境检查，交付 `wayland-preview` 测试包及独立数据目录启动入口。未提交的后续 QA 实验已单独留存，不在测试包中。
+
+## 尚待完成
+
+Windows 实际拖边 A/B，以及 Ubuntu 实机的输入手感、取消后普通点击、暂停恢复、多屏、缩放、全屏、锁屏和持续动画内存仍需单独验收。Windows 测试包带帧记录入口；关闭设置后输出 trace，不把缩略图优化等同于已消除约 2.4 秒长帧。
