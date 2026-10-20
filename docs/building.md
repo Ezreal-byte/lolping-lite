@@ -53,6 +53,8 @@ python3 scripts/test-linux-surface.py
 
 先提交、push，等待 Windows、macOS、Linux 构建以及 `release-ready` 汇总任务全部通过。下载同一 commit 的 CI 产物，对照各平台 `SHA256SUMS-*.txt` 校验，再创建与包内版本一致的标签（例如 `v0.2.0`）及 Release。不要将后来本地重编译的文件替换该次 CI 产物。
 
+预发布版本也使用独立版本号，例如 `0.3.0-Preview`，GitHub Release 标记为 prerelease，不替换稳定版的 Latest。应用显示版本、构建清单与文件名保留完整版本；Windows PE 与 macOS bundle 的数值字段使用符合系统格式的版本，Debian 使用 `0.3.0~preview`，确保以后 `0.3.0` 正式版可以正常升级覆盖。安装包仍使用原应用 ID 与用户数据目录。
+
 随 Release 提供扩展包、SHA-256、第三方声明与实际性能报告。README 的内存降幅只写实测支持的结果，并说明旧版本、显示器、采样范围和 GPU 内存不计入的限制。
 
 ## 更新与卸载

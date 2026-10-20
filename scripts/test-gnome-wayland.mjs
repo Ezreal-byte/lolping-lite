@@ -85,7 +85,11 @@ async function movePointer(x, y) {
   // Relative motion needs no screencast stream; clamp to the virtual monitor's
   // origin first, then move to the same test coordinates on the real seat.
   await seatRequest('move', { dx: -10000, dy: -10000 });
+  // The D-Bus reply acknowledges injection, not Clutter event dispatch. Let
+  // the origin clamp finish before another relative delta can be coalesced.
+  await delay(50);
   await seatRequest('move', { dx: x, dy: y });
+  await delay(50);
 }
 async function capture(name) {
   // Allow the acknowledged texture to reach the compositor's next frame.
@@ -123,6 +127,9 @@ try {
   command('gsettings', ['set', 'org.gnome.shell', 'enabled-extensions', `['${extensionUuid}']`]);
   command('gsettings', ['set', 'org.gnome.shell', 'disable-user-extensions', 'false']);
   command('gsettings', ['set', 'org.gnome.desktop.interface', 'enable-animations', 'false']);
+  // This private dconf profile uses (0,0) to clamp relative test motion.
+  // Do not let that positioning step open GNOME Overview via the hot corner.
+  command('gsettings', ['set', 'org.gnome.desktop.interface', 'enable-hot-corners', 'false']);
   command('gsettings', ['set', 'org.gnome.shell', 'welcome-dialog-last-shown-version', '46.0'], true);
   shell = spawn('gnome-shell', ['--headless', '--wayland', '--no-x11', '--virtual-monitor=1280x960', `--wayland-display=${waylandDisplay}`], {
     stdio: ['ignore', 'pipe', 'pipe'], env: process.env,

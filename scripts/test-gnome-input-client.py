@@ -63,7 +63,8 @@ window.connect("destroy", Gtk.main_quit)
 area = Gtk.DrawingArea()
 area.set_can_focus(True)
 area.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
-                Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK)
+                Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK |
+                Gdk.EventMask.POINTER_MOTION_MASK)
 window.add(area)
 
 
@@ -78,8 +79,14 @@ def on_button(_widget, event, kind):
     return False
 
 
+def on_motion(_widget, event):
+    emit({"type": "motion", "x": event.x, "y": event.y, "state": int(event.state)})
+    return False
+
+
 area.connect("key-press-event", lambda widget, event: on_key(widget, event, "key"))
 area.connect("key-release-event", lambda widget, event: on_key(widget, event, "key-release"))
+area.connect("motion-notify-event", on_motion)
 window.connect("focus-in-event", lambda _widget, _event: emit({"type": "focus-in"}))
 window.connect("focus-out-event", lambda _widget, _event: emit({"type": "focus-out"}))
 area.connect("button-press-event", lambda widget, event: on_button(widget, event, "press"))

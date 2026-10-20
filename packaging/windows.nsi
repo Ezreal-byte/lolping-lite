@@ -11,7 +11,7 @@ SetCompressorDictSize 32
 BrandingText "LOLPing Lite ${VERSION}"
 Icon "${ICON}"
 UninstallIcon "${ICON}"
-VIProductVersion "${VERSION}.0"
+VIProductVersion "${NUMERIC_VERSION}"
 VIAddVersionKey "ProductName" "LOLPing Lite"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "FileDescription" "LOLPing Lite per-user setup"

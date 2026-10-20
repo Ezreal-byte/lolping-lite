@@ -6,6 +6,16 @@ LOLPing Lite 是 [lolPing](https://github.com/darrenprx/lolPing) 的本地精简
 
 设置使用 Rust + egui/Glow 绘制；打开时启动单独的设置进程，关闭即释放界面、字体与图形资源。后台只保留打信号所需的核心与输入监听。
 
+## 0.3.0-Preview：Wayland 预览与设置性能优化
+
+新增 **Ubuntu 24.04 / GNOME 46 Wayland** 支持。主动安装随包提供的 GNOME Shell 扩展后，用 `Super + Alt + Q/E` 打开信号／表情轮盘，移动鼠标后释放 Q/E 确认；`Super + Alt + P` 暂停／恢复。首次安装或升级扩展后需注销并重新登录。用户已在 Ubuntu 24.04.3 LTS 真机反馈可以使用；其他 Wayland 桌面尚不支持，Windows、macOS 和 X11 保留原有拖动手势。
+
+设置缩略图改为有界后台解码和 LRU 缓存，每次界面更新限制纹理上传数量，减少拖边、切页时的冷加载阻塞。没有改变生产垂直同步设置、覆盖层手势阈值或方向判定，仍需持续观察偶发长帧。
+
+这是预发布版本。软件渲染的虚拟 GNOME 环境中，Shell 在 308 帧后曾增长约 155 MiB，原因仍待定位；真实桌面的长期内存表现尚未完成量化验收。不能将下方 0.1.0／0.2.0 的 Windows 历史数据当作本版或 Wayland 的内存保证。
+
+见 [0.3.0-Preview 中文发布说明](docs/releases/0.3.0-Preview.md)、[Wayland 安装与操作](docs/wayland.md) 和 [排查记录](docs/resize-wayland-validation.md)。
+
 ## 0.2.0：重新整理的原生设置
 
 深石墨与金色界面，使用「触发、快捷开关、信号与声音、轮盘、表情、应用」六个横向 TAB。运行状态和暂停／恢复始终可见；支持浅色、深色、跟随系统，中英文切换和窄窗口布局。新安装默认深色，已有用户的主题选择保持不变。
@@ -34,16 +44,16 @@ LOLPing Lite 是 [lolPing](https://github.com/darrenprx/lolPing) 的本地精简
 | --- | --- | --- |
 | Windows x64 | `LOLPing-Lite-版本-windows-x64-Setup.exe` 或 `.zip` | Windows 10 / 11；安装器按当前用户安装 |
 | macOS Apple Silicon | `LOLPing-Lite-版本-macos-arm64.dmg` | macOS 13+；需辅助功能授权 |
-| Linux x64 | `LOLPing-Lite-版本-linux-x64.AppImage` 或 `.deb` | Ubuntu 22.04 / glibc 2.35+；X11 与桌面合成器 |
+| Linux x64 | `LOLPing-Lite-版本-linux-x64.AppImage` 或 `.deb` | glibc 2.35+；X11 与桌面合成器，或 Ubuntu 24.04 / GNOME 46 Wayland 与本项目扩展 |
 
 Windows 安装器尚未商业签名，macOS 使用 ad-hoc 签名、尚未公证。macOS 下载后按系统提示在“系统设置 → 隐私与安全性”允许打开，并给应用授予辅助功能权限。Linux AppImage 首次运行需添加可执行权限；AppImage 不自带显卡驱动。
 
-**开发分支新增 Ubuntu 24.04 / GNOME 46 Wayland 桥接。** 需要主动安装并启用随包提供的 GNOME Shell 扩展，使用 `Super + Alt + Q/E` 唤出信号／表情轮盘，移动后释放 Q/E 或点击确认；X11 保留原拖动手势。详情见 [Wayland 安装与操作](docs/wayland.md)。已发布的 v0.2.0 仍仅支持 X11 全局手势；KDE 等其他 Wayland 桌面尚未适配。macOS 全屏空间和 Linux 真实桌面仍需实机验收，CI 不替代这些检查。
+**Wayland 支持从 0.3.0-Preview 开始提供。** 需要主动安装并启用随包提供的 GNOME Shell 扩展；X11 保留原拖动手势。详情见 [Wayland 安装与操作](docs/wayland.md)。稳定版 v0.2.0 仍仅支持 X11 全局手势；KDE 等其他 Wayland 桌面尚未适配。macOS 全屏空间和 Linux 多屏、缩放、锁屏等场景仍需实机验收，CI 不替代这些检查。
 
 ## 使用
 
 - 启动后驻留托盘，首次自动打开设置。再次启动会打开已有实例的设置。
-- 默认按住 `Alt`，鼠标左键拖动选择信号；按住 `Ctrl` 拖动选择表情。默认 `Ctrl + Alt + P` 暂停或恢复。
+- Windows / macOS / X11 默认按住 `Alt`，鼠标左键拖动选择信号；按住 `Ctrl` 拖动选择表情。默认 `Ctrl + Alt + P` 暂停或恢复。GNOME Wayland 使用上面的 `Super + Alt + Q/E/P`。
 - 可在设置中调整触发键、快捷键、轮盘布局、大小、持续时间、音量和语言；支持自定义图片与声音。
 - 关闭设置后仍能打信号；从托盘打开设置、暂停／恢复或退出。开机自启默认关闭。
 - 主包内置 9 个默认表情，其他 35 个下载 `lolping-extra-emotes-1.zip` 后在设置中导入。扩展包不降低原素材质量。

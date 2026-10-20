@@ -62,6 +62,8 @@ jobs:
           node -e "if (process.arch !== '${{ matrix.arch }}') throw Error('Unexpected runner architecture ' + process.arch)"
           rustc --version
       - run: npm ci --ignore-scripts
+      - name: Prerelease versions and native package metadata
+        run: node --test scripts/test-package-version.mjs
       - name: GNOME extension protocol and package boundaries
         run: node --test scripts/test-gnome-package.mjs scripts/test-wayland-extension.mjs
       - run: npm run build:resources
@@ -118,6 +120,12 @@ jobs:
             docs/performance*.json
             docs/validation-0.2.0.md
             docs/ui-0.2.0-*.json
+            docs/releases/0.3.0-Preview.md
+            docs/resize-wayland-validation.md
+            docs/resize-windows-followup.md
+            docs/resize-cpu-comparison.json
+            docs/wayland.md
+            docs/wayland-png-encoding-benchmark.json
             design-qa.md
             THIRD_PARTY_NOTICES.md
 

@@ -6,7 +6,9 @@ import { root, version, target, hash, resetGenerated, executableArchitecture, ru
 import { peImports, isVisualCppRuntime } from './pe-imports.mjs';
 import { diskImage } from './disk-image.mjs';
 import { extensionRelativeDirectory, readExtension, verifyExtensionArchive, isExtensionScript } from './gnome-extension.mjs';
+import { packageVersions } from './package-version.mjs';
 
+const versions = packageVersions(version);
 const dist = join(root, 'dist');
 const metadata = JSON.parse(readFileSync(join(dist, `${target}.artifact.json`), 'utf8'));
 assert.equal(metadata.version, version);
@@ -17,6 +19,9 @@ for (const artifact of metadata.artifacts) {
   assert.equal(hash(bytes), artifact.sha256, artifact.file);
   assert.equal(bytes.length, artifact.size, artifact.file);
   checks.push(`${artifact.file}: SHA-256 and length verified`);
+  if (artifact.kind !== 'optional-emotes') {
+    assert.ok(artifact.file.startsWith(`LOLPing-Lite-${version}-`), 'Asset filenames retain the full release version');
+  }
   if (artifact.kind === 'optional-emotes') {
     const contents = unzipSync(bytes), pack = JSON.parse(Buffer.from(contents['pack.json']).toString('utf8'));
     assert.equal(pack.id, 'lolping-extra-emotes');
@@ -54,10 +59,17 @@ for (const artifact of metadata.artifacts) {
     try {
       const bundle = join(mount, 'LOLPing Lite.app');
       run('codesign', ['--verify', '--deep', '--strict', bundle]);
+      const plist = join(bundle, 'Contents/Info.plist');
+      for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
+        assert.equal(run('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plist], { stdio: 'pipe' }).toString().trim(), versions.macos);
+      }
+      assert.equal(run('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleGetInfoString', plist], { stdio: 'pipe' }).toString().trim(), `LOLPing Lite ${version}`);
       verifyTree(bundle, join(mount, 'checksums.json'), 'Contents/Resources/', 'Contents/MacOS/');
     } finally { await diskImage(['detach', mount]); }
     checks.push('DMG: mounted read-only, signed arm64 app and native asset hashes verified');
   } else if (artifact.kind === 'debian') {
+    assert.equal(run('dpkg-deb', ['--field', path, 'Version'], { stdio: 'pipe' }).toString().trim(), versions.debian);
+    if (versions.prerelease) run('dpkg', ['--compare-versions', versions.debian, 'lt', versions.core]);
     const dir = resetGenerated('.cache/verify/deb', '.cache/verify/deb');
     run('dpkg-deb', ['-x', path, dir]);
     verifyTree(dir, join(dir, 'usr/share/lolping-lite/checksums.json'), 'usr/share/lolping-lite/', 'usr/bin/');
@@ -103,8 +115,10 @@ function verifyContents(contents, prefix) {
   assert.equal(Object.keys(contents).filter(k => k.startsWith(`${prefix}ui/emotes/`) && !k.endsWith('/')).length, 27);
   for (const [key, expected] of Object.entries(assetIndex.files)) assert.equal(hash(contents[`${prefix}ui/${key}`]), expected.sha256, key);
   for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'upstream.json', 'build-info.json']) assert.ok(contents[`${prefix}${name}`]?.length > 100, name);
+  assert.equal(JSON.parse(Buffer.from(contents[`${prefix}build-info.json`]).toString('utf8')).version, version);
 }
 function verifyTree(base, manifestPath, dataPrefix, binPrefix) {
+  assert.equal(JSON.parse(readFileSync(join(base, dataPrefix, 'build-info.json'), 'utf8')).version, version);
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   for (const [key, expected] of Object.entries(manifest.files)) assert.equal(hash(readFileSync(join(base, key))), expected, key);
   const assets = JSON.parse(readFileSync(join(base, dataPrefix, 'ui/assets.json'), 'utf8'));

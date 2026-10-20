@@ -1,6 +1,6 @@
 {
   "name": "lolping-lite-build",
-  "version": "0.2.0",
+  "version": "0.3.0-Preview",
   "private": true,
   "type": "module",
   "license": "MIT",
